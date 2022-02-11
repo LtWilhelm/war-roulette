@@ -1,0 +1,9 @@
+{
+    "deno.enable": true,
+    "deno.lint": true,
+    "deno.unstable": true,
+    "deno.suggest.autoImports": false,
+    "deno.suggest.imports.autoDiscover": false,
+    "deno.importMap": "./import_map.json",
+    "deno.config": "./tsconfig.json"
+}
