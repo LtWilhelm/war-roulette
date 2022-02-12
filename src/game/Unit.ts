@@ -1,7 +1,16 @@
-export class Unit {
-  xPos: number;
-  yPos: number;
+import { Board, Cell } from "./Board.ts";
+import { HoverableClickable } from "./HoverableClickable.ts";
+import { coord } from "./Intersections.ts";
 
+const statusColors = {
+  opponent: 'darkred',
+  active: 'blue',
+  activated: 'slateblue',
+  unactivated: 'green',
+  dead: 'black'
+}
+
+export class Unit extends HoverableClickable {
   health: number;
   speed: number;
 
@@ -22,10 +31,31 @@ export class Unit {
 
   actions?: Function[];
 
-  constructor() {
-    this.xPos = 0;
-    this.yPos = 0;
-    
+  status: keyof typeof statusColors;
+
+  board: Board;
+
+  targetable = true;
+
+  altitude = 0;
+  get absolutePosition(): coord {
+    return {
+      x: this.xPos * this.board.gridScale + (this.board.gridScale / 2),
+      y: this.yPos * this.board.gridScale + (this.board.gridScale / 2),
+    }
+  }
+
+  constructor(board: Board) {
+    super({
+      height: 1,
+      width: 1,
+      xPos: 20,
+      yPos: 20,
+    })
+
+    this.board = board;
+    this.status = 'unactivated';
+
     this.health = 10;
     this.speed = 10;
 
@@ -37,15 +67,135 @@ export class Unit {
 
     this.actionPoints = 3;
     this.equipment = [];
+
+    this.checkAltitude();
   }
 
   shootAt(u: Unit, weapon: number) {
-    
+
   }
 
   registerActions(actions: Function[]) {
     if (!this.actions) this.actions = [];
 
     this.actions = this.actions.concat(actions);
+  }
+
+  validTargets: coord[] = [];
+
+  draw(ctx: CanvasRenderingContext2D, gridScale: number) {
+    // testUnit.draw(ctx, gridScale);
+    this.fillStyle = statusColors[this.status];
+    ctx.lineWidth = 3;
+    super.draw(ctx, gridScale);
+    if (this.status === 'active') {
+      ctx.beginPath();
+      const startingX = this.xPos * gridScale + (gridScale / 2);
+      const startingY = this.yPos * gridScale + (gridScale / 2);
+      ctx.arc(startingX, startingY, this.speed * gridScale + (gridScale / 2), 0, Math.PI * 2);
+      ctx.stroke();
+      // this.checkValidCells(gridScale);
+
+      for (const target of this.validTargets) {
+        const { x, y } = this.absolutePosition;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.strokeStyle = 'orange';
+        ctx.lineTo(target.x, target.y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  onClick() {
+    if (this.status === 'unactivated') {
+      this.status = 'active';
+      this.checkValidCells();
+      this.checkValidTargets();
+      console.log(this.validTargets);
+    }
+  }
+
+  checkValidTargets() {
+    for (const unit of this.board.entities.filter(e => e.targetable)) {
+      if (unit.xPos === this.xPos && unit.yPos === this.yPos) continue;
+      let targetable = true;
+      for (const structure of this.board.structures) {
+        if (structure.blocksView(unit, this, this.board.gridScale)) {
+          targetable = false;
+          break;
+        }
+      }
+      if (targetable) {
+        unit.strokeStyle = 'limegreen'
+        this.validTargets.push(unit.absolutePosition);
+      }
+    }
+  }
+
+  checkValidCells() {
+    const cells = this.board.grid;
+    const gridScale = this.board.gridScale;
+    const centerX = this.xPos * gridScale + (gridScale / 2);
+    const centerY = this.yPos * gridScale + (gridScale / 2);
+
+    for (let x = this.xPos - this.speed; x <= this.xPos + this.speed; x++) {
+      let xCoord = 0;
+      if (x > this.xPos) xCoord = x * gridScale;
+      else if (x < this.xPos) xCoord = (x + 1) * gridScale;
+      else xCoord = x * gridScale + (gridScale / 2);
+      for (let y = this.yPos - this.speed; y <= this.yPos + this.speed; y++) {
+        let yCoord = 0;
+        if (y > this.yPos) yCoord = y * gridScale;
+        else if (y < this.yPos) yCoord = (y + 1) * gridScale;
+        else yCoord = y * gridScale + (gridScale / 2);
+
+        const xOffset = centerX - xCoord;
+        const yOffset = centerY - yCoord;
+
+        const maxDistance = this.speed * gridScale + (gridScale / 2);
+        // console.log(x, y);
+
+        if ((xOffset * xOffset) + (yOffset * yOffset) < (maxDistance * maxDistance) && (x !== this.xPos || y !== this.yPos)) {
+          const cell = cells.get(`${x},${y}`);
+          if (cell) {
+            cell.visible = true;
+            cell.addCallback(this.moveCallback)
+          }
+        }
+      }
+    }
+  }
+
+  moveCallback = (cell: Cell) => {
+    this.xPos = cell.xPos;
+    this.yPos = cell.yPos;
+    this.checkAltitude();
+    // this.status = 'activated';
+    for (const cell of this.board.grid.values()) {
+      cell.visible = false;
+      cell.clearCallbacks();
+    }
+  }
+
+  checkAltitude() {
+    let maxAltitude = 0
+    for (const structure of this.board.structures) {
+      const xOffset = this.xPos - structure.xPos;
+      const yOffset = this.yPos - structure.yPos;
+      if (
+        xOffset >= 0 &&
+        yOffset >= 0 &&
+        xOffset < structure.width &&
+        yOffset < structure.height
+      )
+        maxAltitude = Math.max(structure.altitude);
+      // else maxAltitude = 0;
+    }
+    this.altitude = maxAltitude;
+  }
+
+  onRegister() {
+    this.checkAltitude();
   }
 }

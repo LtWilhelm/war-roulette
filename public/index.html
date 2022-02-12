@@ -7,22 +7,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WarRoulette</title>
   <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Fira Code', monospace;
+      color: #ddd;
+    }
+
     body {
       background: #202020;
       width: 100vw;
       height: 100vh;
       display: grid;
       margin: 0;
+      overflow: hidden;
+      grid-template-rows: 9fr 1fr;
+    }
+
+    .container {
+      display: grid;
     }
 
     canvas {
       place-self: center;
+      border: orange 5px double;
     }
+
+    /* .options {
+      position: fixed;
+      top: 20%;
+      left: 1rem;
+    } */
   </style>
 </head>
 
 <body>
-  <canvas id="game-board"></canvas>
+  <div class="container"><canvas id="game-board" width="0" height="0"></canvas></div>
+
+  <div class="options">
+    <label><input type="checkbox" id="show-grid"> Show Grid</label>
+  </div>
+  
   <script src="./bundle/game.bundle.js" type="module"></script>
 </body>
 
