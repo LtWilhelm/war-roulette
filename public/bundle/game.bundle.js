@@ -124,9 +124,7 @@ class Structure extends HoverableClickable {
         this.width = s.width;
         this.height = s.height;
     }
-    onHover() {
-        this.fillStyle = 'red';
-    }
+    onHover() {}
     offHover() {
         this.fillStyle = 'purple';
     }
@@ -190,8 +188,8 @@ class Board {
         return this.entities.filter((e)=>e.checkIfClicked
         );
     }
-    constructor(canvas1, game){
-        this.game = game;
+    constructor(canvas1, game1){
+        this.game = game1;
         this.canvas = canvas1;
         this.setCanvasScale();
         const ctx = this.canvas.getContext('2d');
@@ -226,7 +224,7 @@ class Board {
         this.grid = new Map();
         for(let x = 0; x < this.gridSize.x; x++){
             for(let y = 0; y < this.gridSize.y; y++){
-                const cell = new Cell(x, y);
+                const cell = new Cell(x, y, this);
                 this.grid.set(`${x},${y}`, cell);
                 this.entities.push(cell);
             }
@@ -306,11 +304,18 @@ class Board {
             this.context.stroke();
         }
     }
+    clearCells() {
+        for (const cell of this.grid.values()){
+            cell.visible = false;
+        }
+    }
 }
 class Cell extends HoverableClickable {
     visible = false;
     callbacks = [];
-    constructor(xPos, yPos){
+    board;
+    structure;
+    constructor(xPos, yPos, board1){
         super({
             xPos,
             yPos,
@@ -318,7 +323,13 @@ class Cell extends HoverableClickable {
             height: 1
         });
         this.fillStyle = "#ffffff30";
-        this.strokeStyle = '#ffffff30';
+        this.strokeStyle = '#00000030';
+        this.board = board1;
+        for (const structure of board1.structures){
+            if (structure.collidesOnGrid(this)) {
+                this.structure = structure;
+            }
+        }
     }
     offHover() {
         this.fillStyle = "#ffffff30";
@@ -345,6 +356,48 @@ class Cell extends HoverableClickable {
         if (this.visible) super.draw(ctx, gridScale);
     }
 }
+class Game {
+    platoons;
+    turnNumber;
+    board;
+    timer;
+    activeUnit;
+    selectedUnit;
+    get activePlatoon() {
+        return this.platoons[this.turnNumber % this.platoons.length];
+    }
+    constructor(board2){
+        this.board = board2;
+        this.board.game = this;
+        this.platoons = [];
+        this.turnNumber = 0;
+        this.timer = setInterval(()=>{
+            if (this.board) this.board.draw();
+        }, 100 / 6);
+    }
+    stopGame() {
+        clearInterval(this.timer);
+    }
+    selectUnit(unit) {
+        this.selectedUnit?.onDeselect();
+        this.selectedUnit = unit;
+        unit.onSelect();
+    }
+    deselctUnit() {
+        this.selectedUnit?.onDeselect();
+        this.selectedUnit = undefined;
+    }
+    registerPlatoon(p) {
+        this.platoons.push(p);
+        console.log('registering');
+        for (const unit of p.units.values()){
+            this.board.registerEntitity(unit, 'units');
+        }
+    }
+    get gameIsReady() {
+        return this.platoons.length > 1;
+    }
+}
 class TargetOutline extends Rectangle {
     draw(ctx, gridScale) {
         this.strokeStyle = 'orange';
@@ -352,13 +405,6 @@ class TargetOutline extends Rectangle {
         super.draw(ctx, gridScale);
     }
 }
-const statusColors = {
-    opponent: 'darkred',
-    active: 'blue',
-    activated: 'slateblue',
-    unactivated: 'green',
-    dead: 'black'
-};
 class Unit extends HoverableClickable {
     health;
     speed;
@@ -373,6 +419,7 @@ class Unit extends HoverableClickable {
     actions;
     status;
     board;
+    game;
     isTargetable = true;
     altitude = 0;
     get absolutePosition() {
@@ -382,7 +429,15 @@ class Unit extends HoverableClickable {
         };
     }
     standingOn;
-    constructor(board1){
+    statusColors = {
+        active: 'blue',
+        selected: 'orange',
+        activated: 'slateblue',
+        unactivated: 'green',
+        dead: 'black'
+    };
+    platoon;
+    constructor(board3, color, platoon, game2){
         super({
             height: 1,
             width: 1,
@@ -390,7 +445,8 @@ class Unit extends HoverableClickable {
             yPos: 20
         });
         this.uuid = crypto.randomUUID();
-        this.board = board1;
+        this.board = board3;
+        this.game = game2;
         this.status = 'unactivated';
         this.health = 10;
         this.speed = 10;
@@ -401,6 +457,8 @@ class Unit extends HoverableClickable {
         this.isHyperAgile = false;
         this.actionPoints = 3;
         this.equipment = [];
+        this.statusColors.unactivated = color;
+        this.platoon = platoon;
         this.checkAltitude();
     }
     shootAt(u, weapon) {}
@@ -408,39 +466,21 @@ class Unit extends HoverableClickable {
         if (!this.actions) this.actions = [];
         this.actions = this.actions.concat(actions);
     }
-    validTargets = [];
+    targetsToUnregister = [];
     draw(ctx, gridScale) {
-        this.fillStyle = statusColors[this.status];
+        this.fillStyle = this.statusColors[this.status];
         ctx.lineWidth = 3;
         super.draw(ctx, gridScale);
-        if (this.status === 'active') {
-            ctx.beginPath();
-            const startingX = this.xPos * gridScale + gridScale / 2;
-            const startingY = this.yPos * gridScale + gridScale / 2;
-            ctx.arc(startingX, startingY, this.speed * gridScale + gridScale / 2, 0, Math.PI * 2);
-            ctx.stroke();
-            for (const target of this.validTargets){
-                const { x , y  } = this.absolutePosition;
-                ctx.beginPath();
-                ctx.moveTo(x, y);
-                ctx.strokeStyle = 'orange';
-                ctx.lineTo(target.x, target.y);
-                ctx.stroke();
-            }
-        }
     }
     onClick() {
-        if (this.status === 'unactivated') {
-            this.status = 'active';
-            this.checkValidCells();
-            this.checkValidTargets();
-            console.log(this.validTargets);
-        }
+        if (this.status === 'unactivated') this.game.selectUnit(this);
+        else this.game.deselctUnit();
     }
     checkValidTargets() {
+        this.unregisterTargets();
         for (const unit of this.board.entities.filter((e)=>e instanceof Unit
         )){
-            if (unit.xPos === this.xPos && unit.yPos === this.yPos) continue;
+            if (unit === this || unit.platoon === this.platoon) continue;
             let targetable = true;
             for (const structure of this.board.structures){
                 if (structure.blocksView(unit, this, this.board.gridScale)) {
@@ -449,15 +489,22 @@ class Unit extends HoverableClickable {
                 }
             }
             if (targetable) {
-                this.board.registerEntitity(new TargetOutline(unit), 'overlay');
+                this.targetsToUnregister.push(this.board.registerEntitity(new TargetOutline(unit), 'overlay'));
             }
         }
+    }
+    unregisterTargets() {
+        for (const target of this.targetsToUnregister){
+            this.board.unregisterEntity('overlay', target);
+        }
+        this.targetsToUnregister = [];
     }
     checkValidCells() {
         const cells = this.board.grid;
         const gridScale = this.board.gridScale;
         const centerX = this.xPos * gridScale + gridScale / 2;
         const centerY = this.yPos * gridScale + gridScale / 2;
+        this.board.clearCells();
         for(let x = this.xPos - this.speed; x <= this.xPos + this.speed; x++){
             let xCoord = 0;
             if (x > this.xPos) xCoord = x * gridScale;
@@ -482,13 +529,15 @@ class Unit extends HoverableClickable {
         }
     }
     moveCallback = (cell)=>{
-        this.xPos = cell.xPos;
-        this.yPos = cell.yPos;
-        this.checkAltitude();
-        this.checkValidTargets();
-        for (const cell1 of this.board.grid.values()){
-            cell1.visible = false;
-            cell1.clearCallbacks();
+        if (this.status === 'active') {
+            this.xPos = cell.xPos;
+            this.yPos = cell.yPos;
+            this.checkAltitude();
+            this.checkValidTargets();
+            for (const cell1 of this.board.grid.values()){
+                cell1.visible = false;
+                cell1.clearCallbacks();
+            }
         }
     };
     checkAltitude() {
@@ -508,6 +557,37 @@ class Unit extends HoverableClickable {
     onRegister() {
         this.checkAltitude();
     }
+    onSelect() {
+        if (this.status === 'unactivated') {
+            this.status = 'selected';
+            this.checkValidCells();
+            this.checkValidTargets();
+        }
+    }
+    onDeselect() {
+        this.status = 'unactivated';
+        this.board.clearCells();
+        this.unregisterTargets();
+    }
+    onActivate() {
+        this.status = 'active';
+    }
+}
+class Platoon {
+    units;
+    board;
+    game;
+    constructor(board4, game3, color = 'green'){
+        this.units = new Map();
+        this.board = board4;
+        this.game = game3;
+        for(let i = 0; i < 10; i++){
+            const unit = new Unit(this.board, color, this, this.game);
+            unit.xPos = Math.floor(Math.random() * board4.gridSize.x);
+            unit.yPos = Math.floor(Math.random() * board4.gridSize.y);
+            this.units.set(unit.uuid, unit);
+        }
+    }
 }
 const canvas = document.querySelector("#game-board");
 const board = new Board(canvas);
@@ -523,8 +603,9 @@ board.registerStructure(new Structure({
     width: 7,
     height: 12
 }), true);
-setInterval(()=>board.draw()
-, 100 / 6);
+const game = new Game(board);
+game.registerPlatoon(new Platoon(board, game, 'red'));
+game.registerPlatoon(new Platoon(board, game, 'green'));
 const gridToggle = document.querySelector('#show-grid');
 gridToggle.checked = board.showGrid;
 gridToggle.addEventListener('change', function(e) {
@@ -532,12 +613,4 @@ gridToggle.addEventListener('change', function(e) {
     board.showGrid = !board.showGrid;
     gridToggle.checked = board.showGrid;
 });
-const testUnit = new Unit(board);
-testUnit.xPos = 15;
-testUnit.yPos = 14;
-const testUnit2 = new Unit(board);
-testUnit2.xPos = 20;
-testUnit2.yPos = 35;
-board.registerEntitity(testUnit, 'units');
-board.registerEntitity(testUnit2, 'units');
 window.board = board;

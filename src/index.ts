@@ -1,6 +1,7 @@
 import { Board } from "./game/Board.ts";
+import { Game } from "./game/Game.ts";
+import { Platoon } from "./game/Platoon.ts";
 import { Structure } from "./game/Structure.ts";
-import { Unit } from "./game/Unit.ts";
 
 const canvas = document.querySelector("#game-board") as HTMLCanvasElement;
 
@@ -20,7 +21,9 @@ board.registerStructure(new Structure({
   height: 12
 }), true);
 
-setInterval(() => board.draw(), 100 / 6);
+const game = new Game(board);
+game.registerPlatoon(new Platoon(board, game, 'red'));
+game.registerPlatoon(new Platoon(board, game, 'green'));
 
 const gridToggle: HTMLInputElement | null = document.querySelector('#show-grid');
 gridToggle!.checked = board.showGrid;
@@ -32,19 +35,12 @@ gridToggle!.addEventListener('change', function (e) {
   gridToggle!.checked = board.showGrid;
 })
 
-const testUnit = new Unit(board);
-testUnit.xPos = 15;
-testUnit.yPos = 14;
-const testUnit2 = new Unit(board);
-testUnit2.xPos = 20;
-testUnit2.yPos = 35;
-
-board.registerEntitity(testUnit, 'units');
-board.registerEntitity(testUnit2, 'units');
-
 declare global {
   interface Window {
     board: any;
+  }
+  interface Crypto {
+    randomUUID(): string;
   }
 }
 

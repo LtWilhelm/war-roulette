@@ -1,8 +1,7 @@
-import { Clickable, Hoverable, IClickable, IHoverable, HoverableClickable } from "./HoverableClickable.ts";
-import { Game } from "./index.ts";
-import { IShape, Rectangle } from "./drawables/Shape.ts";
+import { IClickable, IHoverable, HoverableClickable } from "./HoverableClickable.ts";
+import { Game } from "./Game.ts";
+import { IShape } from "./drawables/Shape.ts";
 import { Structure } from "./Structure.ts";
-import { uuidV4 } from "../lib/uuidV4.ts";
 
 interface drawable extends IShape {
   onRegister?(): void;
@@ -34,7 +33,7 @@ export class Board {
 
   get hoverables(): IHoverable[] {
     return this.entities.filter(e => {
-      if(e.checkHovering) {
+      if (e.checkHovering) {
         if (e instanceof Cell) {
           return e.visible;
         }
@@ -67,6 +66,7 @@ export class Board {
       ev.preventDefault();
 
       for (const clickable of this.clickables) {
+        // TODO - check if a clickable wants to stop bubbling - need an event object
         clickable.checkIfClicked(ev.offsetX / this.gridScale, ev.offsetY / this.gridScale);
       }
     })
@@ -76,6 +76,7 @@ export class Board {
       let isHovering = false;
       for (const hoverable of this.hoverables) {
         if (hoverable.checkHovering(e.offsetX / this.gridScale, e.offsetY / this.gridScale)) {
+          // TODO - check if a hoverable wants to stop bubbling - need an event object
           isHovering = true;
         }
       }
@@ -93,7 +94,7 @@ export class Board {
     this.grid = new Map();
     for (let x = 0; x < this.gridSize.x; x++) {
       for (let y = 0; y < this.gridSize.y; y++) {
-        const cell = new Cell(x, y);
+        const cell = new Cell(x, y, this);
         this.grid.set(`${x},${y}`, cell);
         this.entities.push(cell);
       }
@@ -193,13 +194,23 @@ export class Board {
       this.context.stroke();
     }
   }
+
+  clearCells() {
+    for (const cell of this.grid.values()) {
+      cell.visible = false;
+    }
+  }
 }
 
 export class Cell extends HoverableClickable {
   visible = false;
   callbacks: ((cell: Cell) => void)[] = [];
 
-  constructor(xPos: number, yPos: number) {
+  board: Board;
+
+  structure?: Structure;
+
+  constructor(xPos: number, yPos: number, board: Board) {
     super({
       xPos,
       yPos,
@@ -207,7 +218,15 @@ export class Cell extends HoverableClickable {
       height: 1
     })
     this.fillStyle = "#ffffff30";
-    this.strokeStyle = '#ffffff30';
+    this.strokeStyle = '#00000030';
+    // this.strokeStyle = '#ffffff30';
+    this.board = board;
+
+    for (const structure of board.structures) {
+      if (structure.collidesOnGrid(this)) {
+        this.structure = structure;
+      }
+    }
   }
 
   offHover() {

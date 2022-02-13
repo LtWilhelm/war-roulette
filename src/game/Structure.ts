@@ -1,7 +1,7 @@
 import { HoverableClickable } from "./HoverableClickable.ts";
 import { coord, intersect } from "./Intersections.ts";
 import { Rectangle } from "./drawables/Shape.ts";
-import { Unit } from "./Unit.ts";
+import { Unit } from "./Units/Unit.ts";
 
 interface IStructure {
   xPos: number;
@@ -72,7 +72,7 @@ export class Structure extends HoverableClickable implements IStructure {
   }
 
   onHover() {
-    this.fillStyle = 'red';
+    // this.fillStyle = 'red';
   }
   offHover() {
     this.fillStyle = 'purple';

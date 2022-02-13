@@ -1,16 +1,10 @@
-import { Board, Cell } from "./Board.ts";
-import { TargetOutline } from "./entities/Targetting.ts";
-import { HoverableClickable } from "./HoverableClickable.ts";
-import { coord } from "./Intersections.ts";
-import { Structure } from "./Structure.ts";
-
-const statusColors = {
-  opponent: 'darkred',
-  active: 'blue',
-  activated: 'slateblue',
-  unactivated: 'green',
-  dead: 'black'
-}
+import { Board, Cell } from "../Board.ts";
+import { TargetOutline } from "../entities/Targetting.ts";
+import { Game } from "../Game.ts";
+import { HoverableClickable } from "../HoverableClickable.ts";
+import { coord } from "../Intersections.ts";
+import { Platoon } from "../Platoon.ts";
+import { Structure } from "../Structure.ts";
 
 export class Unit extends HoverableClickable {
   health: number;
@@ -35,9 +29,10 @@ export class Unit extends HoverableClickable {
 
   actions?: Function[];
 
-  status: keyof typeof statusColors;
+  status: keyof typeof this.statusColors;
 
   board: Board;
+  game: Game;
 
   isTargetable = true;
 
@@ -51,7 +46,17 @@ export class Unit extends HoverableClickable {
 
   standingOn?: Structure;
 
-  constructor(board: Board) {
+  statusColors = {
+    active: 'blue',
+    selected: 'orange',
+    activated: 'slateblue',
+    unactivated: 'green',
+    dead: 'black'
+  }
+
+  platoon: Platoon;
+
+  constructor(board: Board, color: string, platoon: Platoon, game: Game) {
     super({
       height: 1,
       width: 1,
@@ -62,6 +67,7 @@ export class Unit extends HoverableClickable {
     this.uuid = crypto.randomUUID();
 
     this.board = board;
+    this.game = game;
     this.status = 'unactivated';
 
     this.health = 10;
@@ -76,6 +82,9 @@ export class Unit extends HoverableClickable {
     this.actionPoints = 3;
     this.equipment = [];
 
+    this.statusColors.unactivated = color;
+    this.platoon = platoon;
+
     this.checkAltitude();
   }
 
@@ -89,44 +98,29 @@ export class Unit extends HoverableClickable {
     this.actions = this.actions.concat(actions);
   }
 
-  validTargets: coord[] = [];
+  targetsToUnregister: string[] = [];
 
   draw(ctx: CanvasRenderingContext2D, gridScale: number) {
     // testUnit.draw(ctx, gridScale);
-    this.fillStyle = statusColors[this.status];
+    this.fillStyle = this.statusColors[this.status];
     ctx.lineWidth = 3;
     super.draw(ctx, gridScale);
-    if (this.status === 'active') {
-      ctx.beginPath();
-      const startingX = this.xPos * gridScale + (gridScale / 2);
-      const startingY = this.yPos * gridScale + (gridScale / 2);
-      ctx.arc(startingX, startingY, this.speed * gridScale + (gridScale / 2), 0, Math.PI * 2);
-      ctx.stroke();
-      // this.checkValidCells(gridScale);
-
-      for (const target of this.validTargets) {
-        const { x, y } = this.absolutePosition;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.strokeStyle = 'orange';
-        ctx.lineTo(target.x, target.y);
-        ctx.stroke();
-      }
-    }
   }
 
   onClick() {
-    if (this.status === 'unactivated') {
-      this.status = 'active';
-      this.checkValidCells();
-      this.checkValidTargets();
-      console.log(this.validTargets);
-    }
+    if (this.status === 'unactivated')
+      this.game.selectUnit(this);
+    else this.game.deselctUnit();
   }
 
   checkValidTargets() {
+    this.unregisterTargets();
+
     for (const unit of (this.board.entities.filter(e => e instanceof Unit) as Unit[])) {
-      if (unit.xPos === this.xPos && unit.yPos === this.yPos) continue;
+      if (
+        unit === this ||
+        unit.platoon === this.platoon
+      ) continue;
       let targetable = true;
       for (const structure of this.board.structures) {
         if (structure.blocksView(unit, this, this.board.gridScale)) {
@@ -135,9 +129,17 @@ export class Unit extends HoverableClickable {
         }
       }
       if (targetable) {
-        this.board.registerEntitity(new TargetOutline(unit), 'overlay');
+        this.targetsToUnregister.push(this.board.registerEntitity(new TargetOutline(unit), 'overlay'));
       }
     }
+  }
+
+  unregisterTargets() {
+    for (const target of this.targetsToUnregister) {
+      this.board.unregisterEntity('overlay', target);
+    }
+
+    this.targetsToUnregister = [];
   }
 
   checkValidCells() {
@@ -145,6 +147,8 @@ export class Unit extends HoverableClickable {
     const gridScale = this.board.gridScale;
     const centerX = this.xPos * gridScale + (gridScale / 2);
     const centerY = this.yPos * gridScale + (gridScale / 2);
+
+    this.board.clearCells();
 
     for (let x = this.xPos - this.speed; x <= this.xPos + this.speed; x++) {
       let xCoord = 0;
@@ -175,14 +179,16 @@ export class Unit extends HoverableClickable {
   }
 
   moveCallback = (cell: Cell) => {
-    this.xPos = cell.xPos;
-    this.yPos = cell.yPos;
-    this.checkAltitude();
-    this.checkValidTargets();
-    // this.status = 'activated';
-    for (const cell of this.board.grid.values()) {
-      cell.visible = false;
-      cell.clearCallbacks();
+    if (this.status === 'active') {
+      this.xPos = cell.xPos;
+      this.yPos = cell.yPos;
+      this.checkAltitude();
+      this.checkValidTargets();
+      // this.status = 'activated';
+      for (const cell of this.board.grid.values()) {
+        cell.visible = false;
+        cell.clearCallbacks();
+      }
     }
   }
 
@@ -209,8 +215,20 @@ export class Unit extends HoverableClickable {
   onRegister() {
     this.checkAltitude();
   }
-}
 
-function v4(): string {
-throw new Error("Function not implemented.");
+  onSelect() {
+    if (this.status === 'unactivated') {
+      this.status = 'selected';
+      this.checkValidCells();
+      this.checkValidTargets();
+    }
+  }
+  onDeselect() {
+    this.status = 'unactivated';
+    this.board.clearCells();
+    this.unregisterTargets();
+  }
+  onActivate() {
+    this.status = 'active';
+  }
 }

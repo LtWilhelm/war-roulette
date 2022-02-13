@@ -1,4 +1,3 @@
-import { applyMixins } from "./Mixins.ts";
 import { Rectangle } from "./drawables/Shape.ts";
 
 export interface IHoverable {
