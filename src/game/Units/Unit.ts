@@ -173,6 +173,7 @@ export class Unit extends HoverableClickable {
     }
 
     this.targetsToUnregister = [];
+    this.validTargets = [];
   }
 
   checkValidCells() {

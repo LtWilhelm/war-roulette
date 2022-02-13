@@ -606,6 +606,7 @@ class Unit extends HoverableClickable {
             this.board.unregisterEntity('overlay', target);
         }
         this.targetsToUnregister = [];
+        this.validTargets = [];
     }
     checkValidCells() {
         const cells = this.board.grid;
