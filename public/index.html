@@ -22,10 +22,13 @@
       margin: 0;
       overflow: hidden;
       grid-template-rows: 9fr 1fr;
+      grid-template-columns: 1fr 3fr;
     }
 
     .container {
       display: grid;
+      grid-column-start: 1;
+      grid-column-end: 3;
     }
 
     canvas {
@@ -47,7 +50,10 @@
   <div class="options">
     <label><input type="checkbox" id="show-grid"> Show Grid</label>
   </div>
-  
+  <div id="controls">
+
+  </div>
+
   <script src="./bundle/game.bundle.js" type="module"></script>
 </body>
 

@@ -366,11 +366,16 @@ class Game {
     get activePlatoon() {
         return this.platoons[this.turnNumber % this.platoons.length];
     }
+    controls;
+    controlContainer;
+    actionPointsRemaining = 0;
     constructor(board2){
         this.board = board2;
         this.board.game = this;
         this.platoons = [];
         this.turnNumber = 0;
+        this.controls = new Map();
+        this.controlContainer = document.getElementById("controls");
         this.timer = setInterval(()=>{
             if (this.board) this.board.draw();
         }, 100 / 6);
@@ -382,10 +387,23 @@ class Game {
         this.selectedUnit?.onDeselect();
         this.selectedUnit = unit;
         unit.onSelect();
+        const control = this.controls.get('activate') || new Control();
+        control.uuid = 'activate';
+        control.changeText('Activate Unit');
+        control.setAction((e)=>{
+            e.preventDefault();
+            this.activateUnit();
+            this.unregisterControl('activate');
+        });
+        this.registerControl(control);
     }
     deselctUnit() {
         this.selectedUnit?.onDeselect();
         this.selectedUnit = undefined;
+    }
+    activateUnit() {
+        this.activeUnit = this.selectedUnit;
+        this.activeUnit?.onActivate();
     }
     registerPlatoon(p) {
         this.platoons.push(p);
@@ -394,8 +412,41 @@ class Game {
             this.board.registerEntitity(unit, 'units');
         }
     }
+    registerControl(control) {
+        this.controls.set(control.uuid, control);
+        this.controlContainer.append(control.element);
+    }
+    unregisterControl(id) {
+        const control = this.controls.get(id);
+        if (control) {
+            control.remove();
+            this.controls.delete(id);
+        }
+    }
     get gameIsReady() {
         return this.platoons.length > 1;
+    }
+}
+class Control {
+    action;
+    text;
+    uuid;
+    element;
+    constructor(){
+        this.uuid = crypto.randomUUID();
+        this.element = document.createElement('button');
+    }
+    setAction(handler) {
+        this.action && this.element.removeEventListener('click', this.action);
+        this.action = handler;
+        this.element.addEventListener('click', this.action);
+    }
+    changeText(text) {
+        this.text = text;
+        this.element.textContent = this.text;
+    }
+    remove() {
+        this.element.remove();
     }
 }
 class TargetOutline extends Rectangle {
