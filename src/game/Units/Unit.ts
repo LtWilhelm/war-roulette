@@ -1,3 +1,4 @@
+import { audioHandler } from "../AudioHandler.ts";
 import { Board, Cell } from "../Board.ts";
 import { Line } from "../drawables/Shape.ts";
 import { TargetOutline } from "../entities/Targetting.ts";
@@ -92,11 +93,13 @@ export class Unit extends HoverableClickable {
   }
 
   shootAt(unit: Unit) {
-
+    console.log("BLAM!");
+    audioHandler('shoot').play();
   }
-
+  
   fight(unit: Unit) {
-
+    console.log("HAVE AT YE!");
+    audioHandler('fight').play();
   }
 
   registerActions(actions: Function[]) {

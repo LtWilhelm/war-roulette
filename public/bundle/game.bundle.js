@@ -513,6 +513,41 @@ class Control {
         this.element.remove();
     }
 }
+const SoundClips = {
+    bang: 'bang.mp3',
+    blaggard: 'blaggard.mp3',
+    boom: 'boom.mp3',
+    fight_me: 'fight_me.mp3',
+    fite_me: 'fite_me.mp3',
+    for_the_emperor: 'for_the_emperor.mp3',
+    have_at_ye: 'have_at_ye.mp3',
+    kablooie: 'kablooie.mp3',
+    ratatatata: 'ratatatata.mp3'
+};
+const audioHandler = (type)=>{
+    const audio = new Audio();
+    if (type === 'fight') {
+        const fightSounds = [
+            'blaggard',
+            'fight_me',
+            'fite_me',
+            'for_the_emperor',
+            'have_at_ye'
+        ];
+        type = fightSounds[Math.floor(Math.random() * fightSounds.length)];
+    }
+    if (type === 'shoot') {
+        const fightSounds = [
+            'bang',
+            'boom',
+            'kablooie',
+            'ratatatata'
+        ];
+        type = fightSounds[Math.floor(Math.random() * fightSounds.length)];
+    }
+    audio.src = `/sounds/${SoundClips[type]}`;
+    return audio;
+};
 class TargetOutline extends Rectangle {
     draw(ctx, gridScale) {
         this.strokeStyle = 'orange';
@@ -577,8 +612,14 @@ class Unit extends HoverableClickable {
         this.platoon = platoon;
         this.checkAltitude();
     }
-    shootAt(unit) {}
-    fight(unit) {}
+    shootAt(unit) {
+        console.log("BLAM!");
+        audioHandler('shoot').play();
+    }
+    fight(unit) {
+        console.log("HAVE AT YE!");
+        audioHandler('fight').play();
+    }
     registerActions(actions) {
         if (!this.actions) this.actions = [];
         this.actions = this.actions.concat(actions);
