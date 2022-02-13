@@ -159,18 +159,6 @@ class Structure extends HoverableClickable {
         return false;
     }
 }
-const uuidV4 = ()=>{
-    const uuid = new Array(36);
-    for(let i = 0; i < uuid.length; i++){
-        uuid[i] = Math.floor(Math.random() * 16);
-    }
-    uuid[14] = 4;
-    uuid[19] = uuid[19] &= ~(1 << 2);
-    uuid[19] = uuid[19] |= ~(1 << 3);
-    uuid[8] = uuid[13] = uuid[18] = uuid[23] = '-';
-    return uuid.map((x)=>x.toString(16)
-    ).join();
-};
 class Board {
     canvas;
     context;
@@ -280,7 +268,7 @@ class Board {
         if (layerId) {
             const layer = this.layers.get(layerId);
             if (layer) {
-                const id = uuidV4();
+                const id = ent.uuid || crypto.randomUUID();
                 layer.set(id, ent);
                 return id;
             }
@@ -374,6 +362,7 @@ const statusColors = {
 class Unit extends HoverableClickable {
     health;
     speed;
+    uuid;
     shootingSkill;
     fightingSkill;
     armor;
@@ -400,6 +389,7 @@ class Unit extends HoverableClickable {
             xPos: 20,
             yPos: 20
         });
+        this.uuid = crypto.randomUUID();
         this.board = board1;
         this.status = 'unactivated';
         this.health = 10;

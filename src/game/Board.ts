@@ -145,7 +145,7 @@ export class Board {
     if (layerId) {
       const layer = this.layers.get(layerId);
       if (layer) {
-        const id = uuidV4()
+        const id = (ent as any).uuid || crypto.randomUUID();
         layer.set(id, ent);
         return id;
       }

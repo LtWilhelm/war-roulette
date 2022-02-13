@@ -16,6 +16,8 @@ export class Unit extends HoverableClickable {
   health: number;
   speed: number;
 
+  uuid: string;
+
   // shootingSkill is a multiplier that determines how likely a shot is to hit, between 0 and 1
   shootingSkill: number;
   // fightingSkill is a multiplier that compares with opponent fighting skill, between 0 and 1
@@ -56,6 +58,8 @@ export class Unit extends HoverableClickable {
       xPos: 20,
       yPos: 20,
     })
+
+    this.uuid = crypto.randomUUID();
 
     this.board = board;
     this.status = 'unactivated';
@@ -205,4 +209,8 @@ export class Unit extends HoverableClickable {
   onRegister() {
     this.checkAltitude();
   }
+}
+
+function v4(): string {
+throw new Error("Function not implemented.");
 }
