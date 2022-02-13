@@ -36,7 +36,7 @@ export const audioHandler = (type: audioOption | 'fight' | 'shoot') => {
 
     type = fightSounds[Math.floor(Math.random() * fightSounds.length)]
   }
-  audio.src = `/sounds/${SoundClips[type]}`
+  audio.src = `./sounds/${SoundClips[type]}`
 
   return audio;
 }

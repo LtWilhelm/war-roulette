@@ -545,7 +545,7 @@ const audioHandler = (type)=>{
         ];
         type = fightSounds[Math.floor(Math.random() * fightSounds.length)];
     }
-    audio.src = `/sounds/${SoundClips[type]}`;
+    audio.src = `./sounds/${SoundClips[type]}`;
     return audio;
 };
 class TargetOutline extends Rectangle {
