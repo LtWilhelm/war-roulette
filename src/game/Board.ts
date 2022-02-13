@@ -2,6 +2,7 @@ import { IClickable, IHoverable, HoverableClickable } from "./HoverableClickable
 import { Game } from "./Game.ts";
 import { IShape } from "./drawables/Shape.ts";
 import { Structure } from "./Structure.ts";
+import { Unit } from "./Units/Unit.ts";
 
 interface drawable extends IShape {
   onRegister?(): void;
@@ -55,8 +56,11 @@ export class Board {
     const ctx = this.canvas.getContext('2d');
     this.context = ctx!;
 
+    
     this.structures = [];
     this.entities = [];
+    this.grid = new Map();
+    this.buildGridCells()
     // this.drawables = [];
     this.layers = new Map();
     this.layers.set('units', new Map());
@@ -90,8 +94,9 @@ export class Board {
       }
       this.canvas.style.cursor = "default";
     })
+  }
 
-    this.grid = new Map();
+  private buildGridCells() {
     for (let x = 0; x < this.gridSize.x; x++) {
       for (let y = 0; y < this.gridSize.y; y++) {
         const cell = new Cell(x, y, this);
@@ -198,6 +203,7 @@ export class Board {
   clearCells() {
     for (const cell of this.grid.values()) {
       cell.visible = false;
+      cell.clearCallbacks();
     }
   }
 }
@@ -209,6 +215,8 @@ export class Cell extends HoverableClickable {
   board: Board;
 
   structure?: Structure;
+
+  occupant?: Unit;
 
   constructor(xPos: number, yPos: number, board: Board) {
     super({

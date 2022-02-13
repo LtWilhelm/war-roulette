@@ -116,12 +116,12 @@ export class Unit extends HoverableClickable {
   }
 
   onClick() {
-    if (this.status === 'unactivated' && this.game.activePlatoon === this.platoon)
+    if (this.status === 'unactivated' && this.game.activePlatoon === this.platoon && !this.game.activeUnit)
       this.game.selectUnit(this);
     else if (this.game.activeUnit && this.game.activePlatoon !== this.platoon) {
       if (this.isWithinMelee(this.game.activeUnit)) this.game.activeUnit.fight(this);
       else if (this.game.activeUnit.validTargets.includes(this)) this.game.activeUnit.shootAt(this);
-    } else this.game.deselctUnit();
+    } else if(!this.game.activeUnit) this.game.deselctUnit();
   }
 
   targetLine?: string;
@@ -213,16 +213,15 @@ export class Unit extends HoverableClickable {
   }
 
   moveCallback = (cell: Cell) => {
-    if (this.status === 'active') {
+    if (this.status === 'active' && !cell.occupant) {
+      this.board.grid.get(`${this.xPos},${this.yPos}`)!.occupant = undefined;
+
       this.xPos = cell.xPos;
       this.yPos = cell.yPos;
       this.checkAltitude();
       this.checkValidTargets();
       // this.status = 'activated';
-      for (const cell of this.board.grid.values()) {
-        cell.visible = false;
-        cell.clearCallbacks();
-      }
+      this.board.clearCells();
     }
   }
 
@@ -244,6 +243,7 @@ export class Unit extends HoverableClickable {
     }
     this.altitude = maxAltitude;
     this.standingOn = standingOn;
+    this.board.grid.get(`${this.xPos},${this.yPos}`)!.occupant = this;
   }
 
   onRegister() {

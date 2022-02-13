@@ -221,6 +221,8 @@ class Board {
         this.context = ctx;
         this.structures = [];
         this.entities = [];
+        this.grid = new Map();
+        this.buildGridCells();
         this.layers = new Map();
         this.layers.set('units', new Map());
         this.layers.set('overlay', new Map());
@@ -246,7 +248,8 @@ class Board {
             }
             this.canvas.style.cursor = "default";
         });
-        this.grid = new Map();
+    }
+    buildGridCells() {
         for(let x = 0; x < this.gridSize.x; x++){
             for(let y = 0; y < this.gridSize.y; y++){
                 const cell = new Cell(x, y, this);
@@ -332,6 +335,7 @@ class Board {
     clearCells() {
         for (const cell of this.grid.values()){
             cell.visible = false;
+            cell.clearCallbacks();
         }
     }
 }
@@ -340,6 +344,7 @@ class Cell extends HoverableClickable {
     callbacks = [];
     board;
     structure;
+    occupant;
     constructor(xPos, yPos, board1){
         super({
             xPos,
@@ -553,11 +558,11 @@ class Unit extends HoverableClickable {
         super.draw(ctx, gridScale);
     }
     onClick() {
-        if (this.status === 'unactivated' && this.game.activePlatoon === this.platoon) this.game.selectUnit(this);
+        if (this.status === 'unactivated' && this.game.activePlatoon === this.platoon && !this.game.activeUnit) this.game.selectUnit(this);
         else if (this.game.activeUnit && this.game.activePlatoon !== this.platoon) {
             if (this.isWithinMelee(this.game.activeUnit)) this.game.activeUnit.fight(this);
             else if (this.game.activeUnit.validTargets.includes(this)) this.game.activeUnit.shootAt(this);
-        } else this.game.deselctUnit();
+        } else if (!this.game.activeUnit) this.game.deselctUnit();
     }
     targetLine;
     onHover() {
@@ -638,15 +643,13 @@ class Unit extends HoverableClickable {
         }
     }
     moveCallback = (cell)=>{
-        if (this.status === 'active') {
+        if (this.status === 'active' && !cell.occupant) {
+            this.board.grid.get(`${this.xPos},${this.yPos}`).occupant = undefined;
             this.xPos = cell.xPos;
             this.yPos = cell.yPos;
             this.checkAltitude();
             this.checkValidTargets();
-            for (const cell1 of this.board.grid.values()){
-                cell1.visible = false;
-                cell1.clearCallbacks();
-            }
+            this.board.clearCells();
         }
     };
     checkAltitude() {
@@ -662,6 +665,7 @@ class Unit extends HoverableClickable {
         }
         this.altitude = maxAltitude;
         this.standingOn = standingOn;
+        this.board.grid.get(`${this.xPos},${this.yPos}`).occupant = this;
     }
     onRegister() {
         this.checkAltitude();
