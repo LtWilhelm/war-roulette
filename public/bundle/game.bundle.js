@@ -535,6 +535,7 @@ const audioHandler = (type)=>{
             'have_at_ye'
         ];
         type = fightSounds[Math.floor(Math.random() * fightSounds.length)];
+        if (type === 'have_at_ye') console.log("Honestly, I know this probably sounds like Spiff, but I PROMISE it's me");
     }
     if (type === 'shoot') {
         const fightSounds = [
