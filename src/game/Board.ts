@@ -28,7 +28,7 @@ export class Board {
   private _gridScale = 20;
   get gridScale() { return this._gridScale }
 
-  showGrid = true;
+  showGrid = false;
 
   game?: Game;
 
@@ -56,7 +56,7 @@ export class Board {
     const ctx = this.canvas.getContext('2d');
     this.context = ctx!;
 
-    
+
     this.structures = [];
     this.entities = [];
     this.grid = new Map();
@@ -135,14 +135,13 @@ export class Board {
     this.structures.push(struc);
     this.entities.push(struc);
     if (symmetrical) {
-      const sym = new Structure({
-        ...struc,
-        xPos: this.gridSize.x - struc.width - struc.xPos,
-        yPos: this.gridSize.y - struc.height - struc.yPos,
-      })
+      const sym = new Structure(struc)
+      sym.xPos = this.gridSize.x - struc.width - struc.xPos;
+      sym.yPos = this.gridSize.y - struc.height - struc.yPos;
       this.structures.push(sym);
       this.entities.push(sym);
     }
+    this.buildGridCells();
   }
 
   registerEntitity<T extends drawable>(ent: T, layerId: string) {
@@ -162,10 +161,26 @@ export class Board {
     if (layer) layer.delete(id);
   }
 
+  drawBG() {
+    const img: HTMLImageElement | null = document.getElementById('background') as HTMLImageElement;
+    if (img) {
+      const imgWidth = img.width;
+      const imgHeight = img.height;
+      for (let x = 0; x < this.canvas.width; x += imgWidth) {
+        for (let y = 0; y < this.canvas.height; y += imgHeight) {
+          this.context.drawImage(img as HTMLImageElement, x, y);
+        }
+      }
+      this.context.fillStyle = '#00000090'
+      this.context.fillRect(0,0, this.canvas.width, this.canvas.height);
+    }
+  }
+
   draw() {
     // this.context.fillStyle = 'black';
     // this.context.fillRect(0,0,this.canvas.width, this.canvas.height);
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.drawBG();
     for (const structure of this.structures) {
       structure.draw(this.context, this.gridScale);
     }
@@ -218,6 +233,8 @@ export class Cell extends HoverableClickable {
 
   occupant?: Unit;
 
+  actionPenalty = 0;
+
   constructor(xPos: number, yPos: number, board: Board) {
     super({
       xPos,
@@ -233,6 +250,7 @@ export class Cell extends HoverableClickable {
     for (const structure of board.structures) {
       if (structure.collidesOnGrid(this)) {
         this.structure = structure;
+        this.actionPenalty = 1;
       }
     }
   }
@@ -265,7 +283,13 @@ export class Cell extends HoverableClickable {
   draw(ctx: CanvasRenderingContext2D, gridScale: number) {
     // this.visible = !this.visible;
 
-    if (this.visible)
+    if (this.visible) {
       super.draw(ctx, gridScale);
+      if (this.actionPenalty) {
+        ctx.fillStyle = 'white';
+        ctx.font = `${gridScale}px monospace`
+        ctx.fillText(`-${this.actionPenalty}`, this.xPos * gridScale, this.yPos * gridScale + gridScale - (gridScale / 10), gridScale)
+      }
+    }
   }
 }

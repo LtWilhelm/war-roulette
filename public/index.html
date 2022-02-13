@@ -29,18 +29,24 @@
       display: grid;
       grid-column-start: 1;
       grid-column-end: 3;
+      position: relative;
     }
 
     canvas {
       place-self: center;
       border: orange 5px double;
     }
-
+    
     button {
       background-color: #404040;
       border-radius: 1rem;
       border: #606060 2px solid;
     }
+    
+    #background {
+      display: none;
+    }
+
     /* .options {
       position: fixed;
       top: 20%;
@@ -50,7 +56,9 @@
 </head>
 
 <body>
-  <div class="container"><canvas id="game-board" width="0" height="0"></canvas></div>
+  <div class="container">
+    <canvas id="game-board" width="0" height="0"></canvas>
+  </div>
 
   <div class="options">
     <label><input type="checkbox" id="show-grid"> Show Grid</label>
@@ -58,6 +66,8 @@
   <div id="controls">
 
   </div>
+
+  <img src="https://i.pinimg.com/originals/ef/23/8b/ef238b5a703395ae88807b1e5eb4c5ad.jpg" alt="bg img" id="background" >
 
   <script src="./bundle/game.bundle.js" type="module"></script>
 </body>

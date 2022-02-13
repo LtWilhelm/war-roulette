@@ -19,6 +19,7 @@ class Rectangle {
         ctx.fillStyle = this.fillStyle;
         ctx.strokeStyle = this.strokeStyle;
         ctx.fillRect(this.xPos * gridScale, this.yPos * gridScale, this.width * gridScale, this.height * gridScale);
+        ctx.shadowColor = '#00000000';
         ctx.strokeRect(this.xPos * gridScale, this.yPos * gridScale, this.width * gridScale, this.height * gridScale);
     }
 }
@@ -148,17 +149,17 @@ class Structure extends HoverableClickable {
         this.yPos = s.yPos;
         this.width = s.width;
         this.height = s.height;
-    }
-    onHover() {}
-    offHover() {
-        this.fillStyle = 'purple';
+        if (s instanceof Structure) {
+            this.fillStyle = s.fillStyle;
+            this.altitude = s.altitude;
+        }
     }
     onClick() {
         console.log('STRUCTURE CLICKED');
     }
     collidesOnGrid(target) {
-        const xOffset = target.xPos = this.xPos;
-        const yOffset = target.yPos = this.yPos;
+        const xOffset = target.xPos - this.xPos;
+        const yOffset = target.yPos - this.yPos;
         return xOffset >= 0 && yOffset >= 0 && xOffset < this.width && yOffset < this.height;
     }
     blocksView(target, actor, gridScale) {
@@ -167,19 +168,28 @@ class Structure extends HoverableClickable {
             if (intersect(target.absolutePosition, actor.absolutePosition, ...boundary)) {
                 if (boundary[0].x === boundary[1].x) {
                     const targetXOffset = Math.abs(target.absolutePosition.x - boundary[0].x);
-                    if (targetXOffset < gridScale && target.standingOn === this) return false;
+                    if (targetXOffset < gridScale && target.standingOn?.includes(this)) return false;
                     const actorXOffset = Math.abs(actor.absolutePosition.x - boundary[0].x);
-                    if (actorXOffset < gridScale && actor.standingOn === this) return false;
+                    if (actorXOffset < gridScale && actor.standingOn?.includes(this)) return false;
                 } else if (boundary[0].y === boundary[1].y) {
                     const targetYOffset = Math.abs(target.absolutePosition.y - boundary[0].y);
-                    if (targetYOffset < gridScale && target.standingOn === this) return false;
+                    if (targetYOffset < gridScale && target.standingOn?.includes(this)) return false;
                     const actorYOffset = Math.abs(actor.absolutePosition.y - boundary[0].y);
-                    if (actorYOffset < gridScale && actor.standingOn === this) return false;
+                    if (actorYOffset < gridScale && actor.standingOn?.includes(this)) return false;
                 }
                 return true;
             }
         }
         return false;
+    }
+    draw(ctx, gridScale) {
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = gridScale;
+        ctx.shadowOffsetX = gridScale / 3;
+        ctx.shadowOffsetY = gridScale / 2;
+        this.strokeStyle = 'black';
+        super.draw(ctx, gridScale);
+        ctx.shadowColor = '#00000000';
     }
 }
 class Board {
@@ -197,7 +207,7 @@ class Board {
     get gridScale() {
         return this._gridScale;
     }
-    showGrid = true;
+    showGrid = false;
     game;
     get hoverables() {
         return this.entities.filter((e)=>{
@@ -279,14 +289,13 @@ class Board {
         this.structures.push(struc);
         this.entities.push(struc);
         if (symmetrical) {
-            const sym = new Structure({
-                ...struc,
-                xPos: this.gridSize.x - struc.width - struc.xPos,
-                yPos: this.gridSize.y - struc.height - struc.yPos
-            });
+            const sym = new Structure(struc);
+            sym.xPos = this.gridSize.x - struc.width - struc.xPos;
+            sym.yPos = this.gridSize.y - struc.height - struc.yPos;
             this.structures.push(sym);
             this.entities.push(sym);
         }
+        this.buildGridCells();
     }
     registerEntitity(ent, layerId) {
         this.entities.push(ent);
@@ -304,8 +313,23 @@ class Board {
         const layer = this.layers.get(layerId);
         if (layer) layer.delete(id);
     }
+    drawBG() {
+        const img = document.getElementById('background');
+        if (img) {
+            const imgWidth = img.width;
+            const imgHeight = img.height;
+            for(let x = 0; x < this.canvas.width; x += imgWidth){
+                for(let y = 0; y < this.canvas.height; y += imgHeight){
+                    this.context.drawImage(img, x, y);
+                }
+            }
+            this.context.fillStyle = '#00000090';
+            this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+    }
     draw() {
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.drawBG();
         for (const structure of this.structures){
             structure.draw(this.context, this.gridScale);
         }
@@ -345,6 +369,7 @@ class Cell extends HoverableClickable {
     board;
     structure;
     occupant;
+    actionPenalty = 0;
     constructor(xPos, yPos, board1){
         super({
             xPos,
@@ -358,6 +383,7 @@ class Cell extends HoverableClickable {
         for (const structure of board1.structures){
             if (structure.collidesOnGrid(this)) {
                 this.structure = structure;
+                this.actionPenalty = 1;
             }
         }
     }
@@ -383,7 +409,14 @@ class Cell extends HoverableClickable {
         this.callbacks = [];
     }
     draw(ctx, gridScale) {
-        if (this.visible) super.draw(ctx, gridScale);
+        if (this.visible) {
+            super.draw(ctx, gridScale);
+            if (this.actionPenalty) {
+                ctx.fillStyle = 'white';
+                ctx.font = `${gridScale}px monospace`;
+                ctx.fillText(`-${this.actionPenalty}`, this.xPos * gridScale, this.yPos * gridScale + gridScale - gridScale / 10, gridScale);
+            }
+        }
     }
 }
 class Game {
@@ -637,6 +670,15 @@ class Unit extends HoverableClickable {
                     if (cell) {
                         cell.visible = true;
                         cell.addCallback(this.moveCallback);
+                        if (this.standingOn) {
+                            if (cell.structure?.altitude === this.altitude && this.standingOn.includes(cell.structure)) {
+                                cell.actionPenalty = 0;
+                            } else {
+                                cell.actionPenalty = Math.abs((cell.structure?.altitude || 0) - this.altitude);
+                            }
+                        } else {
+                            cell.actionPenalty = cell.structure?.altitude || 0;
+                        }
                     }
                 }
             }
@@ -650,17 +692,18 @@ class Unit extends HoverableClickable {
             this.checkAltitude();
             this.checkValidTargets();
             this.board.clearCells();
+            this.onActivate();
         }
     };
     checkAltitude() {
         let maxAltitude = 0;
-        let standingOn;
+        const standingOn = [];
         for (const structure of this.board.structures){
             const xOffset = this.xPos - structure.xPos;
             const yOffset = this.yPos - structure.yPos;
             if (xOffset >= 0 && yOffset >= 0 && xOffset < structure.width && yOffset < structure.height) {
                 maxAltitude = Math.max(structure.altitude, maxAltitude);
-                standingOn = structure;
+                standingOn.push(structure);
             }
         }
         this.altitude = maxAltitude;
@@ -684,6 +727,8 @@ class Unit extends HoverableClickable {
     }
     onActivate() {
         this.status = 'active';
+        this.checkValidCells();
+        this.checkValidTargets();
     }
 }
 class Platoon {
@@ -710,6 +755,15 @@ board.registerStructure(new Structure({
     width: 15,
     height: 10
 }), true);
+const secondFloor = new Structure({
+    xPos: 5,
+    yPos: 15,
+    width: 5,
+    height: 5
+});
+secondFloor.fillStyle = '#722872';
+secondFloor.altitude = 2;
+board.registerStructure(secondFloor, true);
 board.registerStructure(new Structure({
     xPos: 30,
     yPos: 7,

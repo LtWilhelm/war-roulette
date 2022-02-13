@@ -52,10 +52,10 @@ export class Rectangle implements IShape {
   draw(ctx: CanvasRenderingContext2D, gridScale: number) {
     ctx.fillStyle = this.fillStyle;
     ctx.strokeStyle = this.strokeStyle;
-
     // ctx.lineWidth = 5
-
+    
     ctx.fillRect(this.xPos * gridScale, this.yPos * gridScale, this.width * gridScale, this.height * gridScale);
+    ctx.shadowColor = '#00000000'
     ctx.strokeRect(this.xPos * gridScale, this.yPos * gridScale, this.width * gridScale, this.height * gridScale);
   }
 }

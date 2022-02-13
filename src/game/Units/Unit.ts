@@ -45,7 +45,7 @@ export class Unit extends HoverableClickable {
     }
   }
 
-  standingOn?: Structure;
+  standingOn?: Structure[];
 
   statusColors = {
     active: 'blue',
@@ -205,7 +205,17 @@ export class Unit extends HoverableClickable {
           const cell = cells.get(`${x},${y}`);
           if (cell) {
             cell.visible = true;
-            cell.addCallback(this.moveCallback)
+            cell.addCallback(this.moveCallback);
+
+            if (this.standingOn) {
+              if (cell.structure?.altitude === this.altitude && this.standingOn.includes(cell.structure)) {
+                cell.actionPenalty = 0;
+              } else {
+                cell.actionPenalty = Math.abs((cell.structure?.altitude || 0) - this.altitude)
+              }
+            } else {
+              cell.actionPenalty = cell.structure?.altitude || 0;
+            }
           }
         }
       }
@@ -222,12 +232,13 @@ export class Unit extends HoverableClickable {
       this.checkValidTargets();
       // this.status = 'activated';
       this.board.clearCells();
+      this.onActivate();
     }
   }
 
   checkAltitude() {
     let maxAltitude = 0
-    let standingOn;
+    const standingOn = [];
     for (const structure of this.board.structures) {
       const xOffset = this.xPos - structure.xPos;
       const yOffset = this.yPos - structure.yPos;
@@ -238,7 +249,7 @@ export class Unit extends HoverableClickable {
         yOffset < structure.height
       ) {
         maxAltitude = Math.max(structure.altitude, maxAltitude);
-        standingOn = structure;
+        standingOn.push(structure);
       }
     }
     this.altitude = maxAltitude;
@@ -264,5 +275,7 @@ export class Unit extends HoverableClickable {
   }
   onActivate() {
     this.status = 'active';
+    this.checkValidCells();
+    this.checkValidTargets();
   }
 }

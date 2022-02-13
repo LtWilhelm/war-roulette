@@ -13,6 +13,15 @@ board.registerStructure(new Structure({
   width: 15,
   height: 10
 }), true);
+const secondFloor = new Structure({
+  xPos: 5,
+  yPos: 15,
+  width: 5,
+  height: 5,
+});
+secondFloor.fillStyle = '#722872';
+secondFloor.altitude = 2;
+board.registerStructure(secondFloor, true);
 
 board.registerStructure(new Structure({
   xPos: 30,
