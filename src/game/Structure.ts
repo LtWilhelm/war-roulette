@@ -1,6 +1,6 @@
 import { HoverableClickable } from "./HoverableClickable.ts";
 import { coord, intersect } from "./Intersections.ts";
-import { Rectangle } from "./Shape.ts";
+import { Rectangle } from "./drawables/Shape.ts";
 import { Unit } from "./Unit.ts";
 
 interface IStructure {
@@ -97,24 +97,24 @@ export class Structure extends HoverableClickable implements IStructure {
         if (boundary[0].x === boundary[1].x) {
           const targetXOffset = Math.abs(target.absolutePosition.x - boundary[0].x);
           if (
-            (targetXOffset < gridScale && target.altitude === this.altitude) &&
-            this.collidesOnGrid(target)
+            (targetXOffset < gridScale) &&
+            target.standingOn === this
           ) return false;
           const actorXOffset = Math.abs(actor.absolutePosition.x - boundary[0].x);
           if (
-            (actorXOffset < gridScale && actor.altitude === this.altitude) &&
-            this.collidesOnGrid(actor)
+            (actorXOffset < gridScale) &&
+            actor.standingOn === this
           ) return false;
         } else if (boundary[0].y === boundary[1].y) {
           const targetYOffset = Math.abs(target.absolutePosition.y - boundary[0].y);
           if (
-            (targetYOffset < gridScale && target.altitude === this.altitude) &&
-            this.collidesOnGrid(target)
+            (targetYOffset < gridScale) &&
+            target.standingOn === this
           ) return false;
           const actorYOffset = Math.abs(actor.absolutePosition.y - boundary[0].y);
           if (
-            (actorYOffset < gridScale && actor.altitude === this.altitude) &&
-            this.collidesOnGrid(actor)
+            (actorYOffset < gridScale) &&
+            actor.standingOn === this
           ) return false;
         }
         return true;

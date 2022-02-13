@@ -1,12 +1,16 @@
 import { Clickable, Hoverable, IClickable, IHoverable, HoverableClickable } from "./HoverableClickable.ts";
 import { Game } from "./index.ts";
-import { IShape, Rectangle } from "./Shape.ts";
+import { IShape, Rectangle } from "./drawables/Shape.ts";
 import { Structure } from "./Structure.ts";
+import { uuidV4 } from "../lib/uuidV4.ts";
 
-type drawable = {
-  draw(ctx: CanvasRenderingContext2D, gridScale: number): void;
+interface drawable extends IShape {
   onRegister?(): void;
 }
+
+type layer = Map<string, IShape>;
+
+type layers = Map<string, layer>;
 
 export class Board {
   private canvas: HTMLCanvasElement;
@@ -16,7 +20,7 @@ export class Board {
   structures: Structure[];
   entities: any[];
 
-  drawables: drawable[];
+  layers: layers;
 
   grid: Map<string, Cell>;
 
@@ -29,7 +33,14 @@ export class Board {
   game?: Game;
 
   get hoverables(): IHoverable[] {
-    return this.entities.filter(e => e.checkHovering);
+    return this.entities.filter(e => {
+      if(e.checkHovering) {
+        if (e instanceof Cell) {
+          return e.visible;
+        }
+        return true;
+      }
+    });
   }
 
   get clickables(): IClickable[] {
@@ -47,7 +58,10 @@ export class Board {
 
     this.structures = [];
     this.entities = [];
-    this.drawables = [];
+    // this.drawables = [];
+    this.layers = new Map();
+    this.layers.set('units', new Map());
+    this.layers.set('overlay', new Map());
 
     this.canvas.addEventListener('click', (ev) => {
       ev.preventDefault();
@@ -125,10 +139,21 @@ export class Board {
     }
   }
 
-  registerEntitity<T extends drawable>(ent: T, drawable = true) {
+  registerEntitity<T extends drawable>(ent: T, layerId: string) {
     this.entities.push(ent);
     if (ent.onRegister) ent.onRegister();
-    if (drawable) this.drawables.push(ent);
+    if (layerId) {
+      const layer = this.layers.get(layerId);
+      if (layer) {
+        const id = uuidV4()
+        layer.set(id, ent);
+        return id;
+      }
+    }
+  }
+  unregisterEntity(layerId: string, id: string) {
+    const layer = this.layers.get(layerId);
+    if (layer) layer.delete(id);
   }
 
   draw() {
@@ -145,8 +170,10 @@ export class Board {
     }
 
     // Draw additional entities
-    for (const drawable of this.drawables) {
-      drawable.draw(this.context, this.gridScale);
+    for (const layer of this.layers.values()) {
+      for (const drawable of layer.values()) {
+        drawable.draw(this.context, this.gridScale);
+      }
     }
 
     // Draw grid
@@ -207,7 +234,7 @@ export class Cell extends HoverableClickable {
   clearCallbacks() {
     this.callbacks = [];
   }
-  
+
   draw(ctx: CanvasRenderingContext2D, gridScale: number) {
     // this.visible = !this.visible;
 

@@ -144,14 +144,14 @@ class Structure extends HoverableClickable {
             if (intersect(target.absolutePosition, actor.absolutePosition, ...boundary)) {
                 if (boundary[0].x === boundary[1].x) {
                     const targetXOffset = Math.abs(target.absolutePosition.x - boundary[0].x);
-                    if (targetXOffset < gridScale && target.altitude === this.altitude && this.collidesOnGrid(target)) return false;
+                    if (targetXOffset < gridScale && target.standingOn === this) return false;
                     const actorXOffset = Math.abs(actor.absolutePosition.x - boundary[0].x);
-                    if (actorXOffset < gridScale && actor.altitude === this.altitude && this.collidesOnGrid(actor)) return false;
+                    if (actorXOffset < gridScale && actor.standingOn === this) return false;
                 } else if (boundary[0].y === boundary[1].y) {
                     const targetYOffset = Math.abs(target.absolutePosition.y - boundary[0].y);
-                    if (targetYOffset < gridScale && target.altitude === this.altitude && this.collidesOnGrid(target)) return false;
+                    if (targetYOffset < gridScale && target.standingOn === this) return false;
                     const actorYOffset = Math.abs(actor.absolutePosition.y - boundary[0].y);
-                    if (actorYOffset < gridScale && actor.altitude === this.altitude && this.collidesOnGrid(actor)) return false;
+                    if (actorYOffset < gridScale && actor.standingOn === this) return false;
                 }
                 return true;
             }
@@ -159,12 +159,24 @@ class Structure extends HoverableClickable {
         return false;
     }
 }
+const uuidV4 = ()=>{
+    const uuid = new Array(36);
+    for(let i = 0; i < uuid.length; i++){
+        uuid[i] = Math.floor(Math.random() * 16);
+    }
+    uuid[14] = 4;
+    uuid[19] = uuid[19] &= ~(1 << 2);
+    uuid[19] = uuid[19] |= ~(1 << 3);
+    uuid[8] = uuid[13] = uuid[18] = uuid[23] = '-';
+    return uuid.map((x)=>x.toString(16)
+    ).join();
+};
 class Board {
     canvas;
     context;
     structures;
     entities;
-    drawables;
+    layers;
     grid;
     gridSize = {
         x: 40,
@@ -177,8 +189,14 @@ class Board {
     showGrid = true;
     game;
     get hoverables() {
-        return this.entities.filter((e)=>e.checkHovering
-        );
+        return this.entities.filter((e)=>{
+            if (e.checkHovering) {
+                if (e instanceof Cell) {
+                    return e.visible;
+                }
+                return true;
+            }
+        });
     }
     get clickables() {
         return this.entities.filter((e)=>e.checkIfClicked
@@ -192,7 +210,9 @@ class Board {
         this.context = ctx;
         this.structures = [];
         this.entities = [];
-        this.drawables = [];
+        this.layers = new Map();
+        this.layers.set('units', new Map());
+        this.layers.set('overlay', new Map());
         this.canvas.addEventListener('click', (ev)=>{
             ev.preventDefault();
             for (const clickable of this.clickables){
@@ -254,10 +274,21 @@ class Board {
             this.entities.push(sym);
         }
     }
-    registerEntitity(ent, drawable = true) {
+    registerEntitity(ent, layerId) {
         this.entities.push(ent);
         if (ent.onRegister) ent.onRegister();
-        if (drawable) this.drawables.push(ent);
+        if (layerId) {
+            const layer = this.layers.get(layerId);
+            if (layer) {
+                const id = uuidV4();
+                layer.set(id, ent);
+                return id;
+            }
+        }
+    }
+    unregisterEntity(layerId, id) {
+        const layer = this.layers.get(layerId);
+        if (layer) layer.delete(id);
     }
     draw() {
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -267,8 +298,10 @@ class Board {
         for (const cell of this.grid.values()){
             cell.draw(this.context, this.gridScale);
         }
-        for (const drawable of this.drawables){
-            drawable.draw(this.context, this.gridScale);
+        for (const layer of this.layers.values()){
+            for (const drawable of layer.values()){
+                drawable.draw(this.context, this.gridScale);
+            }
         }
         if (this.showGrid) {
             this.context.strokeStyle = '#ffffff50';
@@ -324,6 +357,13 @@ class Cell extends HoverableClickable {
         if (this.visible) super.draw(ctx, gridScale);
     }
 }
+class TargetOutline extends Rectangle {
+    draw(ctx, gridScale) {
+        this.strokeStyle = 'orange';
+        this.fillStyle = '#00000000';
+        super.draw(ctx, gridScale);
+    }
+}
 const statusColors = {
     opponent: 'darkred',
     active: 'blue',
@@ -344,7 +384,7 @@ class Unit extends HoverableClickable {
     actions;
     status;
     board;
-    targetable = true;
+    isTargetable = true;
     altitude = 0;
     get absolutePosition() {
         return {
@@ -352,6 +392,7 @@ class Unit extends HoverableClickable {
             y: this.yPos * this.board.gridScale + this.board.gridScale / 2
         };
     }
+    standingOn;
     constructor(board1){
         super({
             height: 1,
@@ -407,7 +448,7 @@ class Unit extends HoverableClickable {
         }
     }
     checkValidTargets() {
-        for (const unit of this.board.entities.filter((e)=>e.targetable
+        for (const unit of this.board.entities.filter((e)=>e instanceof Unit
         )){
             if (unit.xPos === this.xPos && unit.yPos === this.yPos) continue;
             let targetable = true;
@@ -418,8 +459,7 @@ class Unit extends HoverableClickable {
                 }
             }
             if (targetable) {
-                unit.strokeStyle = 'limegreen';
-                this.validTargets.push(unit.absolutePosition);
+                this.board.registerEntitity(new TargetOutline(unit), 'overlay');
             }
         }
     }
@@ -455,6 +495,7 @@ class Unit extends HoverableClickable {
         this.xPos = cell.xPos;
         this.yPos = cell.yPos;
         this.checkAltitude();
+        this.checkValidTargets();
         for (const cell1 of this.board.grid.values()){
             cell1.visible = false;
             cell1.clearCallbacks();
@@ -462,12 +503,17 @@ class Unit extends HoverableClickable {
     };
     checkAltitude() {
         let maxAltitude = 0;
+        let standingOn;
         for (const structure of this.board.structures){
             const xOffset = this.xPos - structure.xPos;
             const yOffset = this.yPos - structure.yPos;
-            if (xOffset >= 0 && yOffset >= 0 && xOffset < structure.width && yOffset < structure.height) maxAltitude = Math.max(structure.altitude);
+            if (xOffset >= 0 && yOffset >= 0 && xOffset < structure.width && yOffset < structure.height) {
+                maxAltitude = Math.max(structure.altitude, maxAltitude);
+                standingOn = structure;
+            }
         }
         this.altitude = maxAltitude;
+        this.standingOn = standingOn;
     }
     onRegister() {
         this.checkAltitude();
@@ -502,6 +548,6 @@ testUnit.yPos = 14;
 const testUnit2 = new Unit(board);
 testUnit2.xPos = 20;
 testUnit2.yPos = 35;
-board.registerEntitity(testUnit);
-board.registerEntitity(testUnit2);
+board.registerEntitity(testUnit, 'units');
+board.registerEntitity(testUnit2, 'units');
 window.board = board;

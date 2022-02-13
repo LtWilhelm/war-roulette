@@ -1,6 +1,8 @@
 import { Board, Cell } from "./Board.ts";
+import { TargetOutline } from "./entities/Targetting.ts";
 import { HoverableClickable } from "./HoverableClickable.ts";
 import { coord } from "./Intersections.ts";
+import { Structure } from "./Structure.ts";
 
 const statusColors = {
   opponent: 'darkred',
@@ -35,7 +37,7 @@ export class Unit extends HoverableClickable {
 
   board: Board;
 
-  targetable = true;
+  isTargetable = true;
 
   altitude = 0;
   get absolutePosition(): coord {
@@ -44,6 +46,8 @@ export class Unit extends HoverableClickable {
       y: this.yPos * this.board.gridScale + (this.board.gridScale / 2),
     }
   }
+
+  standingOn?: Structure;
 
   constructor(board: Board) {
     super({
@@ -117,7 +121,7 @@ export class Unit extends HoverableClickable {
   }
 
   checkValidTargets() {
-    for (const unit of this.board.entities.filter(e => e.targetable)) {
+    for (const unit of (this.board.entities.filter(e => e instanceof Unit) as Unit[])) {
       if (unit.xPos === this.xPos && unit.yPos === this.yPos) continue;
       let targetable = true;
       for (const structure of this.board.structures) {
@@ -127,8 +131,7 @@ export class Unit extends HoverableClickable {
         }
       }
       if (targetable) {
-        unit.strokeStyle = 'limegreen'
-        this.validTargets.push(unit.absolutePosition);
+        this.board.registerEntitity(new TargetOutline(unit), 'overlay');
       }
     }
   }
@@ -171,6 +174,7 @@ export class Unit extends HoverableClickable {
     this.xPos = cell.xPos;
     this.yPos = cell.yPos;
     this.checkAltitude();
+    this.checkValidTargets();
     // this.status = 'activated';
     for (const cell of this.board.grid.values()) {
       cell.visible = false;
@@ -180,6 +184,7 @@ export class Unit extends HoverableClickable {
 
   checkAltitude() {
     let maxAltitude = 0
+    let standingOn;
     for (const structure of this.board.structures) {
       const xOffset = this.xPos - structure.xPos;
       const yOffset = this.yPos - structure.yPos;
@@ -188,11 +193,13 @@ export class Unit extends HoverableClickable {
         yOffset >= 0 &&
         xOffset < structure.width &&
         yOffset < structure.height
-      )
-        maxAltitude = Math.max(structure.altitude);
-      // else maxAltitude = 0;
+      ) {
+        maxAltitude = Math.max(structure.altitude, maxAltitude);
+        standingOn = structure;
+      }
     }
     this.altitude = maxAltitude;
+    this.standingOn = standingOn;
   }
 
   onRegister() {

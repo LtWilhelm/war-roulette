@@ -39,8 +39,8 @@ const testUnit2 = new Unit(board);
 testUnit2.xPos = 20;
 testUnit2.yPos = 35;
 
-board.registerEntitity(testUnit);
-board.registerEntitity(testUnit2);
+board.registerEntitity(testUnit, 'units');
+board.registerEntitity(testUnit2, 'units');
 
 declare global {
   interface Window {
