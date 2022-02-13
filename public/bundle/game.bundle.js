@@ -545,7 +545,8 @@ const audioHandler = (type)=>{
         ];
         type = fightSounds[Math.floor(Math.random() * fightSounds.length)];
     }
-    audio.src = `./sounds/${SoundClips[type]}`;
+    audio.src = `/sounds/${SoundClips[type]}`;
+    if (window.location.host.includes('github')) audio.src = '/public' + audio.src;
     return audio;
 };
 class TargetOutline extends Rectangle {
