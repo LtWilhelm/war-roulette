@@ -63,6 +63,7 @@ export class Game {
 
   activateUnit() {
     this.activeUnit = this.selectedUnit;
+    this.actionPointsRemaining = this.activeUnit!.actionPoints;
     this.activeUnit?.onActivate();
   }
 

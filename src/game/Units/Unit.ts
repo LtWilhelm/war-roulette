@@ -1,4 +1,5 @@
 import { Board, Cell } from "../Board.ts";
+import { Line } from "../drawables/Shape.ts";
 import { TargetOutline } from "../entities/Targetting.ts";
 import { Game } from "../Game.ts";
 import { HoverableClickable } from "../HoverableClickable.ts";
@@ -56,6 +57,8 @@ export class Unit extends HoverableClickable {
 
   platoon: Platoon;
 
+  activeWeapon?: any;
+
   constructor(board: Board, color: string, platoon: Platoon, game: Game) {
     super({
       height: 1,
@@ -88,7 +91,11 @@ export class Unit extends HoverableClickable {
     this.checkAltitude();
   }
 
-  shootAt(u: Unit, weapon: number) {
+  shootAt(unit: Unit) {
+
+  }
+
+  fight(unit: Unit) {
 
   }
 
@@ -99,6 +106,7 @@ export class Unit extends HoverableClickable {
   }
 
   targetsToUnregister: string[] = [];
+  validTargets: Unit[] = [];
 
   draw(ctx: CanvasRenderingContext2D, gridScale: number) {
     // testUnit.draw(ctx, gridScale);
@@ -108,9 +116,33 @@ export class Unit extends HoverableClickable {
   }
 
   onClick() {
-    if (this.status === 'unactivated')
+    if (this.status === 'unactivated' && this.game.activePlatoon === this.platoon)
       this.game.selectUnit(this);
-    else this.game.deselctUnit();
+    else if (this.game.activeUnit && this.game.activePlatoon !== this.platoon) {
+      if (this.isWithinMelee(this.game.activeUnit)) this.game.activeUnit.fight(this);
+      else if (this.game.activeUnit.validTargets.includes(this)) this.game.activeUnit.shootAt(this);
+    } else this.game.deselctUnit();
+  }
+
+  targetLine?: string;
+  onHover() {
+    if (this.game.activeUnit && this.game.activeUnit.validTargets.includes(this)) {
+      const {x:x1,y:y1} = this.game.activeUnit.absolutePosition;
+      const {x: x2, y: y2} = this.absolutePosition;
+      this.targetLine = this.board.registerEntitity(new Line({x1,x2,y1,y2}), 'overlay');
+    }
+  }
+  offHover() {
+    if (this.targetLine) {
+      this.board.unregisterEntity('overlay',this.targetLine);
+      this.targetLine = ''
+    }
+  }
+
+  isWithinMelee(unit: Unit) {
+    const xOffset = Math.abs(this.xPos - unit.xPos);
+    const yOffset = Math.abs(this.yPos - unit.yPos);
+    return (xOffset <= 1 && yOffset <= 1);
   }
 
   checkValidTargets() {
@@ -130,6 +162,7 @@ export class Unit extends HoverableClickable {
       }
       if (targetable) {
         this.targetsToUnregister.push(this.board.registerEntitity(new TargetOutline(unit), 'overlay'));
+        this.validTargets.push(unit);
       }
     }
   }

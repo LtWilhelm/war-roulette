@@ -18,7 +18,7 @@ export class Circle implements IShape {
     this.radius = c.radius;
   }
 
-  draw (ctx: CanvasRenderingContext2D) {
+  draw(ctx: CanvasRenderingContext2D) {
     ctx.fillStyle = 'purple';
     // ctx.translate(this.xPos, this.yPos);
     ctx.beginPath();
@@ -57,5 +57,43 @@ export class Rectangle implements IShape {
 
     ctx.fillRect(this.xPos * gridScale, this.yPos * gridScale, this.width * gridScale, this.height * gridScale);
     ctx.strokeRect(this.xPos * gridScale, this.yPos * gridScale, this.width * gridScale, this.height * gridScale);
+  }
+}
+
+interface ILine {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+export class Line implements IShape, ILine {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  xPos: number;
+  yPos: number;
+
+  strokeStyle: string;
+
+  constructor(l: ILine, color = 'white') {
+    this.x1 = l.x1;
+    this.y1 = l.y1;
+    this.x2 = l.x2
+    this.y2 = l.y2
+    
+    this.xPos = ((l.x1 + l.x2)/2)
+    this.yPos = ((l.y1 + l.y2)/2)
+
+    this.strokeStyle = color;
+  }
+  
+  draw(ctx: CanvasRenderingContext2D, gridScale: number) {
+    ctx.strokeStyle = this.strokeStyle; 
+    ctx.beginPath();
+    ctx.moveTo(this.x1, this.y1);
+    ctx.lineTo(this.x2, this.y2);
+    ctx.stroke();
   }
 }

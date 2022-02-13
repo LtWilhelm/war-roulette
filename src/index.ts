@@ -22,8 +22,8 @@ board.registerStructure(new Structure({
 }), true);
 
 const game = new Game(board);
-game.registerPlatoon(new Platoon(board, game, 'red'));
 game.registerPlatoon(new Platoon(board, game, 'green'));
+game.registerPlatoon(new Platoon(board, game, 'red'));
 
 const gridToggle: HTMLInputElement | null = document.querySelector('#show-grid');
 gridToggle!.checked = board.showGrid;
