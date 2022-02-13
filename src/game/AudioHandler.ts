@@ -36,7 +36,7 @@ export const audioHandler = (type: audioOption | 'fight' | 'shoot') => {
 
     type = fightSounds[Math.floor(Math.random() * fightSounds.length)]
   }
-  audio.src = `${window.location.host.includes('github') ? '/public' : ''}/sounds/${SoundClips[type]}`
+  audio.src = `${window.location.host.includes('github') ? '/war-roulette/public' : ''}/sounds/${SoundClips[type]}`
 
   return audio;
 }
