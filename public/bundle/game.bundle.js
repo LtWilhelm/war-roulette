@@ -52,10 +52,10 @@ class HoverableBase extends Rectangle {
 }
 class Clickable extends Rectangle {
     onClick() {}
-    checkIfClicked(x, y) {
-        const offsetX = x - this.xPos;
-        const offsetY = y - this.yPos;
-        if (offsetX > 0 && offsetY > 0 && offsetX < this.width && offsetY < this.height) {
+    checkIfClicked(p, gridScale) {
+        const offsetX = p.x - this.xPos * gridScale;
+        const offsetY = p.y - this.yPos * gridScale;
+        if (offsetX > 0 && offsetY > 0 && offsetX < this.width * gridScale && offsetY < this.height * gridScale) {
             this.onClick();
             return true;
         }
@@ -67,10 +67,10 @@ function HoverableMixin(Base) {
         isHovered = false;
         onHover() {}
         offHover() {}
-        checkHovering(x, y) {
-            const offsetX = x - this.xPos;
-            const offsetY = y - this.yPos;
-            if (offsetX > 0 && offsetY > 0 && offsetX < this.width && offsetY < this.height) {
+        checkHovering(p, gridScale) {
+            const offsetX = p.x - this.xPos * gridScale;
+            const offsetY = p.y - this.yPos * gridScale;
+            if (offsetX > 0 && offsetY > 0 && offsetX < this.width * gridScale && offsetY < this.height * gridScale) {
                 if (!this.isHovered) {
                     this.isHovered = true;
                     this.onHover();
@@ -216,20 +216,22 @@ class Board {
         this.layers = new Map();
         this.layers.set('units', new Map());
         this.layers.set('overlay', new Map());
-        this.canvas.addEventListener('click', (ev)=>{
-            ev.preventDefault();
+        this.canvas.addEventListener('click', (e)=>{
+            e.preventDefault();
             for (const clickable of this.clickables){
-                clickable.checkIfClicked(ev.offsetX / this.gridScale, ev.offsetY / this.gridScale);
+                clickable.checkIfClicked(this.screenToWorld(e.offsetX, e.offsetY), this.gridScale);
             }
         });
         this.canvas.addEventListener('mousemove', (e)=>{
+            const prev = this.mouse;
             this.mouse = {
                 x: e.offsetX,
                 y: e.offsetY
             };
+            if (this.dragging) this.drag(prev);
             let isHovering = false;
             for (const hoverable of this.hoverables){
-                if (hoverable.checkHovering(e.offsetX / this.gridScale, e.offsetY / this.gridScale)) {
+                if (hoverable.checkHovering(this.screenToWorld(e.offsetX, e.offsetY), this.gridScale)) {
                     isHovering = true;
                 }
             }
@@ -241,7 +243,72 @@ class Board {
                 hoverable.offHover();
             }
             this.canvas.style.cursor = "default";
+            this.dragging = false;
         });
+        this.canvas.addEventListener('wheel', (e)=>{
+            this.scaleAtMouse(e.deltaY < 0 ? 1.1 : 0.9);
+            console.log(this.scale);
+            if (this.scale === 1) {
+                this.origin.x = 0;
+                this.origin.y = 0;
+            }
+        });
+        this.canvas.addEventListener('dblclick', (e)=>{
+            e.preventDefault();
+            this.scale = 1;
+            this.origin.x = 0;
+            this.origin.y = 0;
+            this.context.setTransform(1, 0, 0, 1, 0, 0);
+        });
+        this.canvas.addEventListener('mousedown', (e)=>{
+            e.preventDefault();
+            this.dragging = true;
+        });
+        this.canvas.addEventListener('mouseup', (e)=>{
+            e.preventDefault();
+            this.dragging = false;
+        });
+    }
+    scale = 1;
+    origin = {
+        x: 0,
+        y: 0
+    };
+    worldToScreen(x, y) {
+        x = x * this.scale + this.origin.x;
+        y = y * this.scale + this.origin.y;
+        return {
+            x,
+            y
+        };
+    }
+    screenToWorld(x, y) {
+        x = (x - this.origin.x) / this.scale;
+        y = (y - this.origin.y) / this.scale;
+        return {
+            x,
+            y
+        };
+    }
+    scaleAtMouse(scaleBy) {
+        this.scale = Math.min(Math.max(this.scale * scaleBy, 1), 4);
+        this.origin.x = this.mouse.x - (this.mouse.x - this.origin.x) * scaleBy;
+        this.origin.y = this.mouse.y - (this.mouse.y - this.origin.y) * scaleBy;
+        this.constrainOrigin();
+    }
+    dragging = false;
+    drag(prev) {
+        if (this.scale > 1) {
+            const xOffset = this.mouse.x - prev.x;
+            const yOffset = this.mouse.y - prev.y;
+            this.origin.x += xOffset;
+            this.origin.y += yOffset;
+            this.constrainOrigin();
+        }
+    }
+    constrainOrigin() {
+        this.origin.x = Math.min(Math.max(this.origin.x, -this.canvas.width * this.scale + this.canvas.width), 0);
+        this.origin.y = Math.min(Math.max(this.origin.y, -this.canvas.height * this.scale + this.canvas.height), 0);
     }
     buildGridCells() {
         for(let x = 0; x < this.gridSize.x; x++){
@@ -311,6 +378,7 @@ class Board {
         }
     }
     draw() {
+        this.context.setTransform(this.scale, 0, 0, this.scale, this.origin.x, this.origin.y);
         this.context.shadowColor = '#00000000';
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.drawBG();

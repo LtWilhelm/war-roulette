@@ -1,27 +1,28 @@
 import { Rectangle } from "./drawables/Shape.ts";
+import { Point } from "./geometry/Vector.ts";
 
 export interface IHoverable {
   onHover: () => void;
   offHover: () => void;
-  checkHovering: (x: number, y: number) => boolean;
+  checkHovering: (p: Point, gridScale: number) => boolean;
 }
 
-class HoverableBase extends Rectangle {}
+class HoverableBase extends Rectangle { }
 
 export interface IClickable {
   onClick: () => void;
-  checkIfClicked: (x: number, y: number) => boolean;
+  checkIfClicked: (p: Point, gridScale: number) => boolean;
 }
 
 export class Clickable extends Rectangle implements IClickable {
   onClick() {
     // TODO
   }
-  checkIfClicked(x: number, y: number) {
-    const offsetX = (x - this.xPos);
-    const offsetY = (y - this.yPos);
+  checkIfClicked(p: Point, gridScale: number) {
+    const offsetX = p.x - (this.xPos * gridScale);
+    const offsetY = p.y - (this.yPos * gridScale);
 
-    if (offsetX > 0 && offsetY > 0 && offsetX < this.width && offsetY < this.height) {
+    if (offsetX > 0 && offsetY > 0 && offsetX < this.width * gridScale && offsetY < this.height * gridScale) {
       this.onClick();
       return true;
     }
@@ -35,17 +36,17 @@ type GConstructor<T = {}> = new (...args: any[]) => T;
 type hoverable = GConstructor<Rectangle>;
 
 function HoverableMixin<T extends hoverable>(Base: T) {
-  return class HoverableMixin extends Base implements IHoverable{
+  return class HoverableMixin extends Base implements IHoverable {
     isHovered = false;
 
     onHover() { }
     offHover() { }
-  
-    checkHovering(x: number, y: number) {
-      const offsetX = (x - this.xPos);
-      const offsetY = (y - this.yPos);
-  
-      if (offsetX > 0 && offsetY > 0 && offsetX < this.width && offsetY < this.height) {
+
+    checkHovering(p: Point, gridScale: number) {
+      const offsetX = p.x - (this.xPos * gridScale);
+      const offsetY = p.y - (this.yPos * gridScale);
+
+      if (offsetX > 0 && offsetY > 0 && offsetX < this.width * gridScale && offsetY < this.height * gridScale) {
         if (!this.isHovered) {
           this.isHovered = true;
           this.onHover();
