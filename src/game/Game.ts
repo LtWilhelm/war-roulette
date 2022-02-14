@@ -34,15 +34,7 @@ export class Game {
     this.timer = setInterval(() => {
       if (this.board)
         this.board.draw();
-    }, (100 / 3));
-
-    document.addEventListener('keypress', (e) => {
-      e.preventDefault();
-      console.log(e.key);
-      if (e.key === ' ' && e.shiftKey) {
-        console.log(this.activeUnit);  
-      }
-    })
+    }, (100 / 6));
   }
 
   stopGame() {

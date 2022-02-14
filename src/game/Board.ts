@@ -3,6 +3,7 @@ import { Game } from "./Game.ts";
 import { IShape } from "./drawables/Shape.ts";
 import { Structure } from "./Structure.ts";
 import { Unit } from "./Units/Unit.ts";
+import { VectorLine } from "./geometry/Vector.ts";
 
 interface drawable extends IShape {
   onRegister?(): void;
@@ -32,6 +33,11 @@ export class Board {
 
   game?: Game;
 
+  mouse = {
+    x: 0,
+    y: 0
+  }
+
   get hoverables(): IHoverable[] {
     return this.entities.filter(e => {
       if (e.checkHovering) {
@@ -51,7 +57,7 @@ export class Board {
     this.game = game;
     this.canvas = canvas;
 
-    this.setCanvasScale();
+    this.setGridScale();
 
     const ctx = this.canvas.getContext('2d');
     this.context = ctx!;
@@ -76,7 +82,10 @@ export class Board {
     })
 
     this.canvas.addEventListener('mousemove', (e) => {
-      // console.log(e.offsetX, e.offsetY);
+      this.mouse = {
+        x: e.offsetX,
+        y: e.offsetY
+      }
       let isHovering = false;
       for (const hoverable of this.hoverables) {
         if (hoverable.checkHovering(e.offsetX / this.gridScale, e.offsetY / this.gridScale)) {
@@ -95,10 +104,6 @@ export class Board {
       this.canvas.style.cursor = "default";
     })
 
-    this.canvas.addEventListener('scroll', (e) => {
-      e.preventDefault();
-      console.log("SCROLL");
-    })
   }
 
   private buildGridCells() {
@@ -111,7 +116,7 @@ export class Board {
     }
   }
 
-  setCanvasScale() {
+  setGridScale() {
     let width = Math.min((this.gridSize.x * this.gridScale), this.canvas.parentElement!.clientWidth);
     let height = this.gridSize.y * this.gridScale;
 
@@ -136,18 +141,11 @@ export class Board {
     this.canvas.height = height;
   }
 
-  registerStructure(structure: Structure, symmetrical = false) {
+  registerStructure(structure: Structure) {
     const strucs = [structure, ...structure.getAllSubstructures()]
     for (const struc of strucs) {
       this.structures.push(struc);
       this.entities.push(struc);
-      if (symmetrical) {
-        const sym = new Structure(struc)
-        sym.xPos = this.gridSize.x - struc.width - struc.xPos;
-        sym.yPos = this.gridSize.y - struc.height - struc.yPos;
-        this.structures.push(sym);
-        this.entities.push(sym);
-      }
     }
     this.buildGridCells();
   }
@@ -185,7 +183,7 @@ export class Board {
   }
 
   draw() {
-    // this.context.fillStyle = 'black';
+    this.context.shadowColor = '#00000000';
     // this.context.fillRect(0,0,this.canvas.width, this.canvas.height);
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.drawBG();
@@ -221,7 +219,11 @@ export class Board {
 
       this.context.stroke();
     }
+
+    this.tempLine.draw(this.context, this.gridScale);
+    
   }
+  tempLine = new VectorLine({x: 100, y: 100}, {x: 10 * this.gridScale, y: 0});
 
   clearCells() {
     for (const cell of this.grid.values()) {

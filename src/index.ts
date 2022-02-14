@@ -22,15 +22,29 @@ const secondFloor = new Structure({
 secondFloor.fillStyle = '#722872';
 secondFloor.altitude = 2;
 
-twoStory.substructures.push(secondFloor);
-board.registerStructure(twoStory, true);
+const sym1 = new Structure(twoStory)
+sym1.xPos = board.gridSize.x - twoStory.width - twoStory.xPos;
+sym1.yPos = board.gridSize.y - twoStory.height - twoStory.yPos;
+const sym1SecondFloor = new Structure(secondFloor)
+sym1SecondFloor.xPos = board.gridSize.x - secondFloor.width - secondFloor.xPos;
+sym1SecondFloor.yPos = board.gridSize.y - secondFloor.height - secondFloor.yPos;
 
-board.registerStructure(new Structure({
+twoStory.substructures.push(secondFloor);
+sym1.substructures.push(sym1SecondFloor);
+board.registerStructure(twoStory);
+board.registerStructure(sym1);
+
+const small = new Structure({
   xPos: 30,
   yPos: 7,
   width: 7,
   height: 12
-}), true);
+})
+const sym2 = new Structure(small)
+sym2.xPos = board.gridSize.x - small.width - small.xPos;
+sym2.yPos = board.gridSize.y - small.height - small.yPos;
+board.registerStructure(small);
+board.registerStructure(sym2);
 
 const game = new Game(board);
 game.registerPlatoon(new Platoon(board, game, 'green'));
@@ -56,3 +70,7 @@ declare global {
 }
 
 window.board = board;
+
+canvas.addEventListener('wheel', (e) => {
+  
+})

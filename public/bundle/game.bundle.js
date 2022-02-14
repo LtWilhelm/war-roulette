@@ -88,120 +88,84 @@ function HoverableMixin(Base) {
 }
 HoverableMixin(HoverableBase);
 const HoverableClickable = HoverableMixin(Clickable);
-const ccw = (A, B, C)=>(C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x)
-;
-const intersect = (A, B, C, D)=>ccw(A, C, D) !== ccw(B, C, D) && ccw(A, B, C) !== ccw(A, B, D)
-;
-class Structure extends HoverableClickable {
-    fillStyle = 'purple';
-    altitude = 1;
-    substructures = [];
-    getBoundaries(gridScale) {
-        const xPos = this.xPos * gridScale;
-        const yPos = this.yPos * gridScale;
-        const width = this.width * gridScale;
-        const height = this.height * gridScale;
-        return [
-            [
-                {
-                    x: xPos,
-                    y: yPos
-                },
-                {
-                    x: xPos + width,
-                    y: yPos
-                }, 
-            ],
-            [
-                {
-                    x: xPos,
-                    y: yPos + height
-                },
-                {
-                    x: xPos + width,
-                    y: yPos + height
-                }, 
-            ],
-            [
-                {
-                    x: xPos,
-                    y: yPos
-                },
-                {
-                    x: xPos,
-                    y: yPos + height
-                }, 
-            ],
-            [
-                {
-                    x: xPos + width,
-                    y: yPos
-                },
-                {
-                    x: xPos + width,
-                    y: yPos + height
-                }, 
-            ], 
-        ];
+class Vector {
+    x;
+    y;
+    _angle;
+    _length;
+    get length() {
+        return Math.sqrt(this.x ** 2 + this.y ** 2);
     }
-    constructor(s){
-        super(s);
-        this.xPos = s.xPos;
-        this.yPos = s.yPos;
-        this.width = s.width;
-        this.height = s.height;
-        if (s instanceof Structure) {
-            this.fillStyle = s.fillStyle;
-            this.altitude = s.altitude;
-        }
+    set length(length) {
+        this._length = length;
+        this.calculateXY();
     }
-    onClick() {
-        console.log('STRUCTURE CLICKED');
+    get angle() {
+        this._angle = Math.atan2(this.x, this.y);
+        return this._angle;
     }
-    collidesOnGrid(target) {
-        const xOffset = target.xPos - this.xPos;
-        const yOffset = target.yPos - this.yPos;
-        return xOffset >= 0 && yOffset >= 0 && xOffset < this.width && yOffset < this.height;
+    set angle(angle) {
+        this._angle = angle;
+        this.calculateXY();
     }
-    blocksView(target, actor, gridScale) {
-        if (target.altitude >= this.altitude && actor.altitude >= this.altitude) return false;
-        for (const boundary of this.getBoundaries(gridScale)){
-            if (intersect(target.absolutePosition, actor.absolutePosition, ...boundary)) {
-                if (boundary[0].x === boundary[1].x) {
-                    const targetXOffset = Math.abs(target.absolutePosition.x - boundary[0].x);
-                    if (targetXOffset < gridScale && this.hasSubstructure(target.standingOn)) return false;
-                    const actorXOffset = Math.abs(actor.absolutePosition.x - boundary[0].x);
-                    if (actorXOffset < gridScale && this.hasSubstructure(actor.standingOn)) return false;
-                } else if (boundary[0].y === boundary[1].y) {
-                    const targetYOffset = Math.abs(target.absolutePosition.y - boundary[0].y);
-                    if (targetYOffset < gridScale && this.hasSubstructure(target.standingOn)) return false;
-                    const actorYOffset = Math.abs(actor.absolutePosition.y - boundary[0].y);
-                    if (actorYOffset < gridScale && this.hasSubstructure(actor.standingOn)) return false;
-                }
-                return true;
-            }
-        }
-        return false;
+    calculateXY() {
+        this.x = this._length * Math.sin(this._angle);
+        this.y = this._length * Math.cos(this._angle);
     }
-    hasSubstructure(struc) {
-        return !!struc && (struc === this || this.substructures.some((s)=>s.hasSubstructure(struc)
-        ));
+    constructor(vector, origin){
+        this.x = vector.x;
+        this.y = vector.y;
+        this._length = this.length;
+        this._angle = this.angle;
     }
-    getAllSubstructures() {
-        return this.substructures.flatMap((s)=>[
-                s,
-                ...s.getAllSubstructures()
-            ]
-        );
+    static from(p1, p2) {
+        const point = {
+            x: (p1.x || p1.xPos || 1) - (p2.x || p2.xPos || 1),
+            y: (p1.y || p1.yPos || 1) - (p2.y || p2.yPos || 1)
+        };
+        return new Vector(point);
+    }
+}
+class VectorLine extends Vector {
+    xPos;
+    yPos;
+    constructor(p, v){
+        super(v);
+        this.xPos = p.x;
+        this.yPos = p.y;
+        this.length = 1;
     }
     draw(ctx, gridScale) {
-        ctx.shadowColor = 'black';
-        ctx.shadowBlur = gridScale;
-        ctx.shadowOffsetX = gridScale / 3;
-        ctx.shadowOffsetY = gridScale / 2;
-        this.strokeStyle = 'black';
-        super.draw(ctx, gridScale);
-        ctx.shadowColor = '#00000000';
+        ctx.strokeStyle = 'red';
+        ctx.fillStyle = 'grey';
+        ctx.shadowColor = 'blue';
+        ctx.shadowBlur = 5;
+        ctx.shadowOffsetX = 10;
+        ctx.shadowOffsetY = 5;
+        ctx.beginPath();
+        ctx.arc(this.xPos, this.yPos, gridScale, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(this.xPos, this.yPos);
+        ctx.lineTo(this.xPos + this.x * gridScale, this.yPos + this.y * gridScale);
+        ctx.stroke();
+        this.onDraw(gridScale);
+    }
+    steer = false;
+    onDraw(gridScale) {
+        if (this.steer) {
+            const maxAngle = Math.PI / 10;
+            const randomSteer = Math.random() * maxAngle;
+            this.angle += randomSteer - maxAngle / 2;
+        }
+        const width = gridScale * 40;
+        const height = gridScale * 60;
+        this.xPos = (this.xPos + this.x) % width;
+        this.yPos = (this.yPos + this.y) % height;
+        if (this.xPos < 0) this.xPos = width;
+        if (this.yPos < 0) this.yPos = height;
+        this.steer = !this.steer;
     }
 }
 class Board {
@@ -221,6 +185,10 @@ class Board {
     }
     showGrid = false;
     game;
+    mouse = {
+        x: 0,
+        y: 0
+    };
     get hoverables() {
         return this.entities.filter((e)=>{
             if (e.checkHovering) {
@@ -238,7 +206,7 @@ class Board {
     constructor(canvas1, game1){
         this.game = game1;
         this.canvas = canvas1;
-        this.setCanvasScale();
+        this.setGridScale();
         const ctx = this.canvas.getContext('2d');
         this.context = ctx;
         this.structures = [];
@@ -255,6 +223,10 @@ class Board {
             }
         });
         this.canvas.addEventListener('mousemove', (e)=>{
+            this.mouse = {
+                x: e.offsetX,
+                y: e.offsetY
+            };
             let isHovering = false;
             for (const hoverable of this.hoverables){
                 if (hoverable.checkHovering(e.offsetX / this.gridScale, e.offsetY / this.gridScale)) {
@@ -270,10 +242,6 @@ class Board {
             }
             this.canvas.style.cursor = "default";
         });
-        this.canvas.addEventListener('scroll', (e)=>{
-            e.preventDefault();
-            console.log("SCROLL");
-        });
     }
     buildGridCells() {
         for(let x = 0; x < this.gridSize.x; x++){
@@ -284,7 +252,7 @@ class Board {
             }
         }
     }
-    setCanvasScale() {
+    setGridScale() {
         let width = Math.min(this.gridSize.x * this.gridScale, this.canvas.parentElement.clientWidth);
         let height = this.gridSize.y * this.gridScale;
         if (this.canvas.parentElement.clientWidth < this.canvas.parentElement.clientHeight) {
@@ -301,7 +269,7 @@ class Board {
         this.canvas.width = width;
         this.canvas.height = height;
     }
-    registerStructure(structure, symmetrical = false) {
+    registerStructure(structure) {
         const strucs = [
             structure,
             ...structure.getAllSubstructures()
@@ -309,13 +277,6 @@ class Board {
         for (const struc of strucs){
             this.structures.push(struc);
             this.entities.push(struc);
-            if (symmetrical) {
-                const sym = new Structure(struc);
-                sym.xPos = this.gridSize.x - struc.width - struc.xPos;
-                sym.yPos = this.gridSize.y - struc.height - struc.yPos;
-                this.structures.push(sym);
-                this.entities.push(sym);
-            }
         }
         this.buildGridCells();
     }
@@ -350,6 +311,7 @@ class Board {
         }
     }
     draw() {
+        this.context.shadowColor = '#00000000';
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.drawBG();
         for (const structure of this.structures){
@@ -377,7 +339,15 @@ class Board {
             }
             this.context.stroke();
         }
+        this.tempLine.draw(this.context, this.gridScale);
     }
+    tempLine = new VectorLine({
+        x: 100,
+        y: 100
+    }, {
+        x: 10 * this.gridScale,
+        y: 0
+    });
     clearCells() {
         for (const cell of this.grid.values()){
             cell.visible = false;
@@ -463,14 +433,7 @@ class Game {
         this.controlContainer = document.getElementById("controls");
         this.timer = setInterval(()=>{
             if (this.board) this.board.draw();
-        }, 100 / 3);
-        document.addEventListener('keypress', (e)=>{
-            e.preventDefault();
-            console.log(e.key);
-            if (e.key === ' ' && e.shiftKey) {
-                console.log(this.activeUnit);
-            }
-        });
+        }, 100 / 6);
     }
     stopGame() {
         clearInterval(this.timer);
@@ -818,6 +781,122 @@ class Platoon {
         }
     }
 }
+const ccw = (A, B, C)=>(C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x)
+;
+const intersect = (A, B, C, D)=>ccw(A, C, D) !== ccw(B, C, D) && ccw(A, B, C) !== ccw(A, B, D)
+;
+class Structure extends HoverableClickable {
+    fillStyle = 'purple';
+    altitude = 1;
+    substructures = [];
+    getBoundaries(gridScale) {
+        const xPos = this.xPos * gridScale;
+        const yPos = this.yPos * gridScale;
+        const width = this.width * gridScale;
+        const height = this.height * gridScale;
+        return [
+            [
+                {
+                    x: xPos,
+                    y: yPos
+                },
+                {
+                    x: xPos + width,
+                    y: yPos
+                }, 
+            ],
+            [
+                {
+                    x: xPos,
+                    y: yPos + height
+                },
+                {
+                    x: xPos + width,
+                    y: yPos + height
+                }, 
+            ],
+            [
+                {
+                    x: xPos,
+                    y: yPos
+                },
+                {
+                    x: xPos,
+                    y: yPos + height
+                }, 
+            ],
+            [
+                {
+                    x: xPos + width,
+                    y: yPos
+                },
+                {
+                    x: xPos + width,
+                    y: yPos + height
+                }, 
+            ], 
+        ];
+    }
+    constructor(s){
+        super(s);
+        this.xPos = s.xPos;
+        this.yPos = s.yPos;
+        this.width = s.width;
+        this.height = s.height;
+        if (s instanceof Structure) {
+            this.fillStyle = s.fillStyle;
+            this.altitude = s.altitude;
+        }
+    }
+    onClick() {
+        console.log('STRUCTURE CLICKED');
+    }
+    collidesOnGrid(target) {
+        const xOffset = target.xPos - this.xPos;
+        const yOffset = target.yPos - this.yPos;
+        return xOffset >= 0 && yOffset >= 0 && xOffset < this.width && yOffset < this.height;
+    }
+    blocksView(target, actor, gridScale) {
+        if (target.altitude >= this.altitude && actor.altitude >= this.altitude) return false;
+        for (const boundary of this.getBoundaries(gridScale)){
+            if (intersect(target.absolutePosition, actor.absolutePosition, ...boundary)) {
+                if (boundary[0].x === boundary[1].x) {
+                    const targetXOffset = Math.abs(target.absolutePosition.x - boundary[0].x);
+                    if (targetXOffset < gridScale && this.hasSubstructure(target.standingOn)) return false;
+                    const actorXOffset = Math.abs(actor.absolutePosition.x - boundary[0].x);
+                    if (actorXOffset < gridScale && this.hasSubstructure(actor.standingOn)) return false;
+                } else if (boundary[0].y === boundary[1].y) {
+                    const targetYOffset = Math.abs(target.absolutePosition.y - boundary[0].y);
+                    if (targetYOffset < gridScale && this.hasSubstructure(target.standingOn)) return false;
+                    const actorYOffset = Math.abs(actor.absolutePosition.y - boundary[0].y);
+                    if (actorYOffset < gridScale && this.hasSubstructure(actor.standingOn)) return false;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+    hasSubstructure(struc) {
+        return !!struc && (struc === this || this.substructures.some((s)=>s.hasSubstructure(struc)
+        ));
+    }
+    getAllSubstructures() {
+        return this.substructures.flatMap((s)=>[
+                s,
+                ...s.getAllSubstructures()
+            ]
+        );
+    }
+    draw(ctx, gridScale) {
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = gridScale;
+        ctx.shadowOffsetX = gridScale / 3;
+        ctx.shadowOffsetY = gridScale / 2;
+        this.strokeStyle = 'black';
+        super.draw(ctx, gridScale);
+        ctx.shadowColor = '#00000000';
+    }
+}
 const canvas = document.querySelector("#game-board");
 const board = new Board(canvas);
 const twoStory = new Structure({
@@ -834,14 +913,27 @@ const secondFloor = new Structure({
 });
 secondFloor.fillStyle = '#722872';
 secondFloor.altitude = 2;
+const sym1 = new Structure(twoStory);
+sym1.xPos = board.gridSize.x - twoStory.width - twoStory.xPos;
+sym1.yPos = board.gridSize.y - twoStory.height - twoStory.yPos;
+const sym1SecondFloor = new Structure(secondFloor);
+sym1SecondFloor.xPos = board.gridSize.x - secondFloor.width - secondFloor.xPos;
+sym1SecondFloor.yPos = board.gridSize.y - secondFloor.height - secondFloor.yPos;
 twoStory.substructures.push(secondFloor);
-board.registerStructure(twoStory, true);
-board.registerStructure(new Structure({
+sym1.substructures.push(sym1SecondFloor);
+board.registerStructure(twoStory);
+board.registerStructure(sym1);
+const small = new Structure({
     xPos: 30,
     yPos: 7,
     width: 7,
     height: 12
-}), true);
+});
+const sym2 = new Structure(small);
+sym2.xPos = board.gridSize.x - small.width - small.xPos;
+sym2.yPos = board.gridSize.y - small.height - small.yPos;
+board.registerStructure(small);
+board.registerStructure(sym2);
 const game = new Game(board);
 game.registerPlatoon(new Platoon(board, game, 'green'));
 game.registerPlatoon(new Platoon(board, game, 'red'));
@@ -853,3 +945,4 @@ gridToggle.addEventListener('change', function(e) {
     gridToggle.checked = board.showGrid;
 });
 window.board = board;
+canvas.addEventListener('wheel', (e)=>{});
