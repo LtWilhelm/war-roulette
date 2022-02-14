@@ -95,6 +95,7 @@ const intersect = (A, B, C, D)=>ccw(A, C, D) !== ccw(B, C, D) && ccw(A, B, C) !=
 class Structure extends HoverableClickable {
     fillStyle = 'purple';
     altitude = 1;
+    substructures = [];
     getBoundaries(gridScale) {
         const xPos = this.xPos * gridScale;
         const yPos = this.yPos * gridScale;
@@ -168,19 +169,30 @@ class Structure extends HoverableClickable {
             if (intersect(target.absolutePosition, actor.absolutePosition, ...boundary)) {
                 if (boundary[0].x === boundary[1].x) {
                     const targetXOffset = Math.abs(target.absolutePosition.x - boundary[0].x);
-                    if (targetXOffset < gridScale && target.standingOn?.includes(this)) return false;
+                    if (targetXOffset < gridScale && this.hasSubstructure(target.standingOn)) return false;
                     const actorXOffset = Math.abs(actor.absolutePosition.x - boundary[0].x);
-                    if (actorXOffset < gridScale && actor.standingOn?.includes(this)) return false;
+                    if (actorXOffset < gridScale && this.hasSubstructure(actor.standingOn)) return false;
                 } else if (boundary[0].y === boundary[1].y) {
                     const targetYOffset = Math.abs(target.absolutePosition.y - boundary[0].y);
-                    if (targetYOffset < gridScale && target.standingOn?.includes(this)) return false;
+                    if (targetYOffset < gridScale && this.hasSubstructure(target.standingOn)) return false;
                     const actorYOffset = Math.abs(actor.absolutePosition.y - boundary[0].y);
-                    if (actorYOffset < gridScale && actor.standingOn?.includes(this)) return false;
+                    if (actorYOffset < gridScale && this.hasSubstructure(actor.standingOn)) return false;
                 }
                 return true;
             }
         }
         return false;
+    }
+    hasSubstructure(struc) {
+        return !!struc && (struc === this || this.substructures.some((s)=>s.hasSubstructure(struc)
+        ));
+    }
+    getAllSubstructures() {
+        return this.substructures.flatMap((s)=>[
+                s,
+                ...s.getAllSubstructures()
+            ]
+        );
     }
     draw(ctx, gridScale) {
         ctx.shadowColor = 'black';
@@ -258,6 +270,10 @@ class Board {
             }
             this.canvas.style.cursor = "default";
         });
+        this.canvas.addEventListener('scroll', (e)=>{
+            e.preventDefault();
+            console.log("SCROLL");
+        });
     }
     buildGridCells() {
         for(let x = 0; x < this.gridSize.x; x++){
@@ -285,15 +301,21 @@ class Board {
         this.canvas.width = width;
         this.canvas.height = height;
     }
-    registerStructure(struc, symmetrical = false) {
-        this.structures.push(struc);
-        this.entities.push(struc);
-        if (symmetrical) {
-            const sym = new Structure(struc);
-            sym.xPos = this.gridSize.x - struc.width - struc.xPos;
-            sym.yPos = this.gridSize.y - struc.height - struc.yPos;
-            this.structures.push(sym);
-            this.entities.push(sym);
+    registerStructure(structure, symmetrical = false) {
+        const strucs = [
+            structure,
+            ...structure.getAllSubstructures()
+        ];
+        for (const struc of strucs){
+            this.structures.push(struc);
+            this.entities.push(struc);
+            if (symmetrical) {
+                const sym = new Structure(struc);
+                sym.xPos = this.gridSize.x - struc.width - struc.xPos;
+                sym.yPos = this.gridSize.y - struc.height - struc.yPos;
+                this.structures.push(sym);
+                this.entities.push(sym);
+            }
         }
         this.buildGridCells();
     }
@@ -441,7 +463,14 @@ class Game {
         this.controlContainer = document.getElementById("controls");
         this.timer = setInterval(()=>{
             if (this.board) this.board.draw();
-        }, 100 / 6);
+        }, 100 / 3);
+        document.addEventListener('keypress', (e)=>{
+            e.preventDefault();
+            console.log(e.key);
+            if (e.key === ' ' && e.shiftKey) {
+                console.log(this.activeUnit);
+            }
+        });
     }
     stopGame() {
         clearInterval(this.timer);
@@ -710,7 +739,7 @@ class Unit extends HoverableClickable {
                         cell.visible = true;
                         cell.addCallback(this.moveCallback);
                         if (this.standingOn) {
-                            if (cell.structure?.altitude === this.altitude && this.standingOn.includes(cell.structure)) {
+                            if (cell.structure?.altitude === this.altitude && this.standingOn === cell.structure) {
                                 cell.actionPenalty = 0;
                             } else {
                                 cell.actionPenalty = Math.abs((cell.structure?.altitude || 0) - this.altitude);
@@ -736,13 +765,13 @@ class Unit extends HoverableClickable {
     };
     checkAltitude() {
         let maxAltitude = 0;
-        const standingOn = [];
+        let standingOn;
         for (const structure of this.board.structures){
             const xOffset = this.xPos - structure.xPos;
             const yOffset = this.yPos - structure.yPos;
             if (xOffset >= 0 && yOffset >= 0 && xOffset < structure.width && yOffset < structure.height) {
                 maxAltitude = Math.max(structure.altitude, maxAltitude);
-                standingOn.push(structure);
+                standingOn = structure;
             }
         }
         this.altitude = maxAltitude;
@@ -788,12 +817,12 @@ class Platoon {
 }
 const canvas = document.querySelector("#game-board");
 const board = new Board(canvas);
-board.registerStructure(new Structure({
+const twoStory = new Structure({
     xPos: 5,
     yPos: 15,
     width: 15,
     height: 10
-}), true);
+});
 const secondFloor = new Structure({
     xPos: 5,
     yPos: 15,
@@ -802,7 +831,8 @@ const secondFloor = new Structure({
 });
 secondFloor.fillStyle = '#722872';
 secondFloor.altitude = 2;
-board.registerStructure(secondFloor, true);
+twoStory.substructures.push(secondFloor);
+board.registerStructure(twoStory, true);
 board.registerStructure(new Structure({
     xPos: 30,
     yPos: 7,

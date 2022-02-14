@@ -14,6 +14,8 @@ export class Structure extends HoverableClickable implements IStructure {
   fillStyle = 'purple';
   altitude = 1;
 
+  substructures: Structure[] = [];
+
   getBoundaries(gridScale: number): [coord, coord][] {
     const xPos = this.xPos * gridScale;
     const yPos = this.yPos * gridScale;
@@ -101,35 +103,49 @@ export class Structure extends HoverableClickable implements IStructure {
   blocksView(target: Unit, actor: Unit, gridScale: number) {
     if (target.altitude >= this.altitude && actor.altitude >= this.altitude) return false;
 
+    // TODO better LOS for elevated models
+
     for (const boundary of this.getBoundaries(gridScale)) {
       if (intersect(target.absolutePosition, actor.absolutePosition, ...boundary)) {
         if (boundary[0].x === boundary[1].x) {
           const targetXOffset = Math.abs(target.absolutePosition.x - boundary[0].x);
           if (
             (targetXOffset < gridScale) &&
-            target.standingOn?.includes(this)
+            (this.hasSubstructure(target.standingOn))
           ) return false;
           const actorXOffset = Math.abs(actor.absolutePosition.x - boundary[0].x);
           if (
             (actorXOffset < gridScale) &&
-            actor.standingOn?.includes(this)
+            (this.hasSubstructure(actor.standingOn))
           ) return false;
         } else if (boundary[0].y === boundary[1].y) {
           const targetYOffset = Math.abs(target.absolutePosition.y - boundary[0].y);
           if (
             (targetYOffset < gridScale) &&
-            target.standingOn?.includes(this)
+            (this.hasSubstructure(target.standingOn))
           ) return false;
           const actorYOffset = Math.abs(actor.absolutePosition.y - boundary[0].y);
           if (
             (actorYOffset < gridScale) &&
-            actor.standingOn?.includes(this)
+            (this.hasSubstructure(actor.standingOn))
           ) return false;
         }
         return true;
       }
     }
     return false;
+  }
+
+  hasSubstructure(struc?: Structure): boolean {
+    return !!struc && (struc === this || this.substructures.some(s => s.hasSubstructure(struc)));
+  }
+
+  /**
+   * 
+   * @returns array of all substructures of current structure, not including the parent
+   */
+  getAllSubstructures(): Structure[] {
+    return this.substructures.flatMap(s => [s, ...s.getAllSubstructures()]);
   }
 
   draw(ctx: CanvasRenderingContext2D, gridScale: number) {
