@@ -46,7 +46,7 @@ export class Unit extends HoverableClickable {
     }
   }
 
-  standingOn?: Structure[];
+  standingOn?: Structure;
 
   statusColors = {
     active: 'blue',
@@ -211,7 +211,7 @@ export class Unit extends HoverableClickable {
             cell.addCallback(this.moveCallback);
 
             if (this.standingOn) {
-              if (cell.structure?.altitude === this.altitude && this.standingOn.includes(cell.structure)) {
+              if (cell.structure?.altitude === this.altitude && this.standingOn === cell.structure) {
                 cell.actionPenalty = 0;
               } else {
                 cell.actionPenalty = Math.abs((cell.structure?.altitude || 0) - this.altitude)
@@ -241,7 +241,7 @@ export class Unit extends HoverableClickable {
 
   checkAltitude() {
     let maxAltitude = 0
-    const standingOn = [];
+    let standingOn;
     for (const structure of this.board.structures) {
       const xOffset = this.xPos - structure.xPos;
       const yOffset = this.yPos - structure.yPos;
@@ -252,7 +252,7 @@ export class Unit extends HoverableClickable {
         yOffset < structure.height
       ) {
         maxAltitude = Math.max(structure.altitude, maxAltitude);
-        standingOn.push(structure);
+        standingOn = structure;
       }
     }
     this.altitude = maxAltitude;

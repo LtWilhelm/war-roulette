@@ -7,12 +7,12 @@ const canvas = document.querySelector("#game-board") as HTMLCanvasElement;
 
 const board = new Board(canvas);
 
-board.registerStructure(new Structure({
+const twoStory = new Structure({
   xPos: 5,
   yPos: 15,
   width: 15,
   height: 10
-}), true);
+});
 const secondFloor = new Structure({
   xPos: 5,
   yPos: 15,
@@ -21,7 +21,9 @@ const secondFloor = new Structure({
 });
 secondFloor.fillStyle = '#722872';
 secondFloor.altitude = 2;
-board.registerStructure(secondFloor, true);
+
+twoStory.substructures.push(secondFloor);
+board.registerStructure(twoStory, true);
 
 board.registerStructure(new Structure({
   xPos: 30,

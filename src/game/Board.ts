@@ -94,6 +94,11 @@ export class Board {
       }
       this.canvas.style.cursor = "default";
     })
+
+    this.canvas.addEventListener('scroll', (e) => {
+      e.preventDefault();
+      console.log("SCROLL");
+    })
   }
 
   private buildGridCells() {
@@ -131,15 +136,18 @@ export class Board {
     this.canvas.height = height;
   }
 
-  registerStructure(struc: Structure, symmetrical = false) {
-    this.structures.push(struc);
-    this.entities.push(struc);
-    if (symmetrical) {
-      const sym = new Structure(struc)
-      sym.xPos = this.gridSize.x - struc.width - struc.xPos;
-      sym.yPos = this.gridSize.y - struc.height - struc.yPos;
-      this.structures.push(sym);
-      this.entities.push(sym);
+  registerStructure(structure: Structure, symmetrical = false) {
+    const strucs = [structure, ...structure.getAllSubstructures()]
+    for (const struc of strucs) {
+      this.structures.push(struc);
+      this.entities.push(struc);
+      if (symmetrical) {
+        const sym = new Structure(struc)
+        sym.xPos = this.gridSize.x - struc.width - struc.xPos;
+        sym.yPos = this.gridSize.y - struc.height - struc.yPos;
+        this.structures.push(sym);
+        this.entities.push(sym);
+      }
     }
     this.buildGridCells();
   }
@@ -172,7 +180,7 @@ export class Board {
         }
       }
       this.context.fillStyle = '#00000090'
-      this.context.fillRect(0,0, this.canvas.width, this.canvas.height);
+      this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
   }
 
