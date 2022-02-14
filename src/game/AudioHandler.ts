@@ -18,8 +18,8 @@ export const audioHandler = (type: audioOption | 'fight' | 'shoot') => {
   if (type === 'fight') {
     const fightSounds: audioOption[] = [
       'blaggard',
-      // 'fight_me',
-      // 'fite_me',
+      'fight_me',
+      'fite_me',
       'for_the_emperor',
       'have_at_ye'
     ]

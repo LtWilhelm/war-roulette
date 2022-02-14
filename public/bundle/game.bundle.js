@@ -558,6 +558,8 @@ const audioHandler = (type)=>{
     if (type === 'fight') {
         const fightSounds = [
             'blaggard',
+            'fight_me',
+            'fite_me',
             'for_the_emperor',
             'have_at_ye'
         ];
