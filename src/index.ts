@@ -1,3 +1,4 @@
+import { audioHandler } from "./game/AudioHandler.ts";
 import { Board } from "./game/Board.ts";
 import { Game } from "./game/Game.ts";
 import { Platoon } from "./game/Platoon.ts";
@@ -71,6 +72,7 @@ declare global {
 
 window.board = board;
 
-canvas.addEventListener('wheel', (e) => {
-  
+document.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  audioHandler('kablooie').play();
 })

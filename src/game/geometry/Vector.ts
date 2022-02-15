@@ -41,6 +41,11 @@ export class Vector {
     // else this.origin = {x: 0, y: 0};
   }
 
+  add(v: Vector) {
+    this.x = v.x + this.x;
+    this.y = v.y + this.y;
+  }
+
   static from(p1: Pointlike, p2: Pointlike) {
     const point: Point = {
       x: (p1.x || p1.xPos || 1) - (p2.x || p2.xPos || 1),
@@ -84,10 +89,6 @@ export class VectorLine extends Vector implements IShape {
   draw(ctx: CanvasRenderingContext2D, gridScale: number) {
     ctx.strokeStyle = 'red';
     ctx.fillStyle = 'grey';
-    ctx.shadowColor = 'blue';
-    ctx.shadowBlur = 5;
-    ctx.shadowOffsetX = 10;
-    ctx.shadowOffsetY = 5;
     ctx.beginPath();
     ctx.arc(this.xPos, this.yPos, gridScale, 0, Math.PI*2)
     ctx.stroke();
@@ -106,13 +107,13 @@ export class VectorLine extends Vector implements IShape {
       const randomSteer = Math.random() * maxAngle;
       this.angle += randomSteer - (maxAngle / 2);
     }
-    const width = gridScale * 40;
-    const height = gridScale * 60;
+    const width = (gridScale * 40) + gridScale;
+    const height = (gridScale * 60) + gridScale;
     this.xPos = (this.xPos + this.x) % (width);
     this.yPos = (this.yPos + this.y) % (height);
     
-    if (this.xPos < 0) this.xPos = width;
-    if (this.yPos < 0) this.yPos = height;
+    if (this.xPos < -gridScale) this.xPos = width;
+    if (this.yPos < -gridScale) this.yPos = height;
     this.steer = !this.steer;
   }
 }

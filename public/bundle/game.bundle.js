@@ -2,6 +2,42 @@
 // deno-lint-ignore-file
 // This code was bundled using `deno bundle` and it's not recommended to edit it manually
 
+const SoundClips = {
+    bang: 'bang.mp3',
+    blaggard: 'blaggard.mp3',
+    boom: 'boom.mp3',
+    fight_me: 'fight_me.mp3',
+    fite_me: 'fite_me.mp3',
+    for_the_emperor: 'for_the_emperor.mp3',
+    have_at_ye: 'have_at_ye.mp3',
+    kablooie: 'kablooie.mp3',
+    ratatatata: 'ratatatata.mp3'
+};
+const audioHandler = (type)=>{
+    const audio = new Audio();
+    if (type === 'fight') {
+        const fightSounds = [
+            'blaggard',
+            'fight_me',
+            'fite_me',
+            'for_the_emperor',
+            'have_at_ye'
+        ];
+        type = fightSounds[Math.floor(Math.random() * fightSounds.length)];
+        if (type === 'have_at_ye') console.log("Honestly, I know this probably sounds like Spiff, but I PROMISE it's me");
+    }
+    if (type === 'shoot') {
+        const fightSounds = [
+            'bang',
+            'boom',
+            'kablooie',
+            'ratatatata'
+        ];
+        type = fightSounds[Math.floor(Math.random() * fightSounds.length)];
+    }
+    audio.src = `${window.location.host.includes('github') ? '/war-roulette/public' : ''}/sounds/${SoundClips[type]}`;
+    return audio;
+};
 class Rectangle {
     xPos;
     yPos;
@@ -118,6 +154,10 @@ class Vector {
         this._length = this.length;
         this._angle = this.angle;
     }
+    add(v) {
+        this.x = v.x + this.x;
+        this.y = v.y + this.y;
+    }
     static from(p1, p2) {
         const point = {
             x: (p1.x || p1.xPos || 1) - (p2.x || p2.xPos || 1),
@@ -138,10 +178,6 @@ class VectorLine extends Vector {
     draw(ctx, gridScale) {
         ctx.strokeStyle = 'red';
         ctx.fillStyle = 'grey';
-        ctx.shadowColor = 'blue';
-        ctx.shadowBlur = 5;
-        ctx.shadowOffsetX = 10;
-        ctx.shadowOffsetY = 5;
         ctx.beginPath();
         ctx.arc(this.xPos, this.yPos, gridScale, 0, Math.PI * 2);
         ctx.stroke();
@@ -159,12 +195,12 @@ class VectorLine extends Vector {
             const randomSteer = Math.random() * maxAngle;
             this.angle += randomSteer - maxAngle / 2;
         }
-        const width = gridScale * 40;
-        const height = gridScale * 60;
+        const width = gridScale * 40 + gridScale;
+        const height = gridScale * 60 + gridScale;
         this.xPos = (this.xPos + this.x) % width;
         this.yPos = (this.yPos + this.y) % height;
-        if (this.xPos < 0) this.xPos = width;
-        if (this.yPos < 0) this.yPos = height;
+        if (this.xPos < -gridScale) this.xPos = width;
+        if (this.yPos < -gridScale) this.yPos = height;
         this.steer = !this.steer;
     }
 }
@@ -573,42 +609,6 @@ class Control {
         this.element.remove();
     }
 }
-const SoundClips = {
-    bang: 'bang.mp3',
-    blaggard: 'blaggard.mp3',
-    boom: 'boom.mp3',
-    fight_me: 'fight_me.mp3',
-    fite_me: 'fite_me.mp3',
-    for_the_emperor: 'for_the_emperor.mp3',
-    have_at_ye: 'have_at_ye.mp3',
-    kablooie: 'kablooie.mp3',
-    ratatatata: 'ratatatata.mp3'
-};
-const audioHandler = (type)=>{
-    const audio = new Audio();
-    if (type === 'fight') {
-        const fightSounds = [
-            'blaggard',
-            'fight_me',
-            'fite_me',
-            'for_the_emperor',
-            'have_at_ye'
-        ];
-        type = fightSounds[Math.floor(Math.random() * fightSounds.length)];
-        if (type === 'have_at_ye') console.log("Honestly, I know this probably sounds like Spiff, but I PROMISE it's me");
-    }
-    if (type === 'shoot') {
-        const fightSounds = [
-            'bang',
-            'boom',
-            'kablooie',
-            'ratatatata'
-        ];
-        type = fightSounds[Math.floor(Math.random() * fightSounds.length)];
-    }
-    audio.src = `${window.location.host.includes('github') ? '/war-roulette/public' : ''}/sounds/${SoundClips[type]}`;
-    return audio;
-};
 class TargetOutline extends Rectangle {
     draw(ctx, gridScale) {
         this.strokeStyle = 'orange';
@@ -1013,4 +1013,7 @@ gridToggle.addEventListener('change', function(e) {
     gridToggle.checked = board.showGrid;
 });
 window.board = board;
-canvas.addEventListener('wheel', (e)=>{});
+document.addEventListener('touchstart', (e)=>{
+    e.preventDefault();
+    audioHandler('kablooie').play();
+});
