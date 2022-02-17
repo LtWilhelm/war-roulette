@@ -1,6 +1,7 @@
 import { audioHandler } from "./game/AudioHandler.ts";
 import { Board } from "./game/Board.ts";
 import { Game } from "./game/Game.ts";
+import { Vector } from "./game/geometry/Vector.ts";
 import { Platoon } from "./game/Platoon.ts";
 import { Structure } from "./game/Structure.ts";
 
@@ -72,7 +73,38 @@ declare global {
 
 window.board = board;
 
-document.addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  audioHandler('kablooie').play();
-})
+// document.addEventListener('touchstart', (e) => {
+//   e.preventDefault();
+//   audioHandler('kablooie').play();
+
+//   // if (e.touches.length === 2) {
+//   //   audioHandler('blaggard').play();
+//   // }
+// })
+
+// let prevLength: number;
+// canvas.addEventListener('touchmove', (e) => {
+//   e.preventDefault();
+//   if (e.touches.length === 2) {
+//     const t1 = e.touches.item(0);
+//     const t2 = e.touches.item(1);
+
+//     if (t1 && t2) {
+//       const v = Vector.from(
+//         {
+//           x: t1.clientX,
+//           y: t1.clientY,
+//         },
+//         {
+//           x: t2.clientX,
+//           y: t2.clientY,
+//         },
+//       )
+
+//       if (prevLength) {
+//         const diff = v.length - prevLength;
+//       }
+//       prevLength = v.length;
+//     }
+//   }
+// })

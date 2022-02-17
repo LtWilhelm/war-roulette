@@ -4,6 +4,7 @@ import { IShape } from "./drawables/Shape.ts";
 import { Structure } from "./Structure.ts";
 import { Unit } from "./Units/Unit.ts";
 import { Point, VectorLine } from "./geometry/Vector.ts";
+import { ZoomableCanvas } from "../ZoomableCanvas.ts";
 
 interface drawable extends IShape {
   onRegister?(): void;
@@ -13,11 +14,7 @@ type layer = Map<string, IShape>;
 
 type layers = Map<string, layer>;
 
-export class Board {
-  private canvas: HTMLCanvasElement;
-
-  private context: CanvasRenderingContext2D;
-
+export class Board extends ZoomableCanvas {
   structures: Structure[];
   entities: any[];
 
@@ -32,11 +29,6 @@ export class Board {
   showGrid = false;
 
   game?: Game;
-
-  mouse = {
-    x: 0,
-    y: 0
-  }
 
   get hoverables(): IHoverable[] {
     return this.entities.filter(e => {
@@ -54,6 +46,7 @@ export class Board {
   }
 
   constructor(canvas: HTMLCanvasElement, game?: Game) {
+    super(canvas);
     this.game = game;
     this.canvas = canvas;
 
@@ -82,12 +75,7 @@ export class Board {
     })
 
     this.canvas.addEventListener('mousemove', (e) => {
-      const prev = this.mouse;
-      this.mouse = {
-        x: e.offsetX,
-        y: e.offsetY
-      }
-      if (this.dragging) this.drag(prev);
+
       let isHovering = false;
       for (const hoverable of this.hoverables) {
         if (hoverable.checkHovering(this.screenToWorld(e.offsetX, e.offsetY), this.gridScale)) {
@@ -104,70 +92,14 @@ export class Board {
         hoverable.offHover();
       }
       this.canvas.style.cursor = "default";
-      this.dragging = false;
     })
 
-    this.canvas.addEventListener('wheel', (e) => {
-      this.scaleAtMouse(e.deltaY < 0 ? 1.1 : .9);
-      console.log(this.scale);
-      if (this.scale === 1) {
-        this.origin.x = 0
-        this.origin.y = 0
+    this.canvas.addEventListener('touchend', () => {
+      if (!this.dragging)
+      for (const clickable of this.clickables) {
+        clickable.checkIfClicked(this.screenToWorld(this.mouse.x, this.mouse.y), this.gridScale);
       }
     })
-    this.canvas.addEventListener('dblclick', (e) => {
-      e.preventDefault();
-      this.scale = 1;
-      this.origin.x = 0;
-      this.origin.y = 0;
-      this.context.setTransform(1, 0, 0, 1, 0, 0);
-    })
-    this.canvas.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      this.dragging = true;
-    })
-    this.canvas.addEventListener('mouseup', (e) => {
-      e.preventDefault();
-      this.dragging = false;
-    })
-  }
-
-  scale = 1;
-  origin = {
-    x: 0,
-    y: 0
-  }
-  worldToScreen(x: number, y: number) {
-    x = x * this.scale + this.origin.x;
-    y = y * this.scale + this.origin.y;
-    return { x, y }
-  }
-  screenToWorld(x: number, y: number) {
-    x = (x - this.origin.x) / this.scale;
-    y = (y - this.origin.y) / this.scale;
-    return { x, y }
-  }
-  scaleAtMouse(scaleBy: number) {
-    this.scale = Math.min(Math.max(this.scale * scaleBy, 1), 4);
-    this.origin.x = this.mouse.x - (this.mouse.x - this.origin.x) * scaleBy;
-    this.origin.y = this.mouse.y - (this.mouse.y - this.origin.y) * scaleBy;
-    this.constrainOrigin()
-  }
-  dragging = false;
-  drag(prev: Point) {
-    if (this.scale > 1) {
-      const xOffset = this.mouse.x - prev.x;
-      const yOffset = this.mouse.y - prev.y;
-      this.origin.x += xOffset;
-      this.origin.y += yOffset;
-      this.constrainOrigin()
-      // console.log(this.origin);
-    }
-  }
-
-  constrainOrigin() {
-    this.origin.x = Math.min(Math.max(this.origin.x, (-this.canvas.width * this.scale) + this.canvas.width), 0);
-    this.origin.y = Math.min(Math.max(this.origin.y, (-this.canvas.height * this.scale) + this.canvas.height), 0);
   }
 
   private buildGridCells() {
@@ -247,8 +179,7 @@ export class Board {
   }
 
   draw() {
-    this.context.setTransform(this.scale, 0, 0, this.scale, this.origin.x, this.origin.y)
-
+    super.draw();
     this.context.shadowColor = '#00000000';
     // this.context.fillRect(0,0,this.canvas.width, this.canvas.height);
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);

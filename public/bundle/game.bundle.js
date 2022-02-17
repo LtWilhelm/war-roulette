@@ -2,42 +2,6 @@
 // deno-lint-ignore-file
 // This code was bundled using `deno bundle` and it's not recommended to edit it manually
 
-const SoundClips = {
-    bang: 'bang.mp3',
-    blaggard: 'blaggard.mp3',
-    boom: 'boom.mp3',
-    fight_me: 'fight_me.mp3',
-    fite_me: 'fite_me.mp3',
-    for_the_emperor: 'for_the_emperor.mp3',
-    have_at_ye: 'have_at_ye.mp3',
-    kablooie: 'kablooie.mp3',
-    ratatatata: 'ratatatata.mp3'
-};
-const audioHandler = (type)=>{
-    const audio = new Audio();
-    if (type === 'fight') {
-        const fightSounds = [
-            'blaggard',
-            'fight_me',
-            'fite_me',
-            'for_the_emperor',
-            'have_at_ye'
-        ];
-        type = fightSounds[Math.floor(Math.random() * fightSounds.length)];
-        if (type === 'have_at_ye') console.log("Honestly, I know this probably sounds like Spiff, but I PROMISE it's me");
-    }
-    if (type === 'shoot') {
-        const fightSounds = [
-            'bang',
-            'boom',
-            'kablooie',
-            'ratatatata'
-        ];
-        type = fightSounds[Math.floor(Math.random() * fightSounds.length)];
-    }
-    audio.src = `${window.location.host.includes('github') ? '/war-roulette/public' : ''}/sounds/${SoundClips[type]}`;
-    return audio;
-};
 class Rectangle {
     xPos;
     yPos;
@@ -148,7 +112,7 @@ class Vector {
         this.x = this._length * Math.sin(this._angle);
         this.y = this._length * Math.cos(this._angle);
     }
-    constructor(vector, origin){
+    constructor(vector){
         this.x = vector.x;
         this.y = vector.y;
         this._length = this.length;
@@ -164,6 +128,26 @@ class Vector {
             y: (p1.y || p1.yPos || 1) - (p2.y || p2.yPos || 1)
         };
         return new Vector(point);
+    }
+}
+class OriginVector extends Vector {
+    origin;
+    get halfwayPoint() {
+        return {
+            x: this.length / 2 * Math.sin(this.angle) + this.origin.x,
+            y: this.length / 2 * Math.cos(this.angle) + this.origin.y
+        };
+    }
+    constructor(origin, p){
+        super(p);
+        this.origin = origin;
+    }
+    static from(origin, p) {
+        const v = {
+            x: p.x - origin.x,
+            y: p.y - origin.y
+        };
+        return new OriginVector(origin, v);
     }
 }
 class VectorLine extends Vector {
@@ -204,83 +188,25 @@ class VectorLine extends Vector {
         this.steer = !this.steer;
     }
 }
-class Board {
+class ZoomableCanvas {
     canvas;
     context;
-    structures;
-    entities;
-    layers;
-    grid;
-    gridSize = {
-        x: 40,
-        y: 60
+    scale = 1;
+    dragging = false;
+    origin = {
+        x: 0,
+        y: 0
     };
-    _gridScale = 20;
-    get gridScale() {
-        return this._gridScale;
-    }
-    showGrid = false;
-    game;
     mouse = {
         x: 0,
         y: 0
     };
-    get hoverables() {
-        return this.entities.filter((e)=>{
-            if (e.checkHovering) {
-                if (e instanceof Cell) {
-                    return e.visible;
-                }
-                return true;
-            }
-        });
-    }
-    get clickables() {
-        return this.entities.filter((e)=>e.checkIfClicked
-        );
-    }
-    constructor(canvas1, game1){
-        this.game = game1;
+    previousTouchLength;
+    touchTimer;
+    hasDoubleTapped = false;
+    constructor(canvas1){
         this.canvas = canvas1;
-        this.setGridScale();
-        const ctx = this.canvas.getContext('2d');
-        this.context = ctx;
-        this.structures = [];
-        this.entities = [];
-        this.grid = new Map();
-        this.buildGridCells();
-        this.layers = new Map();
-        this.layers.set('units', new Map());
-        this.layers.set('overlay', new Map());
-        this.canvas.addEventListener('click', (e)=>{
-            e.preventDefault();
-            for (const clickable of this.clickables){
-                clickable.checkIfClicked(this.screenToWorld(e.offsetX, e.offsetY), this.gridScale);
-            }
-        });
-        this.canvas.addEventListener('mousemove', (e)=>{
-            const prev = this.mouse;
-            this.mouse = {
-                x: e.offsetX,
-                y: e.offsetY
-            };
-            if (this.dragging) this.drag(prev);
-            let isHovering = false;
-            for (const hoverable of this.hoverables){
-                if (hoverable.checkHovering(this.screenToWorld(e.offsetX, e.offsetY), this.gridScale)) {
-                    isHovering = true;
-                }
-            }
-            if (isHovering) this.canvas.style.cursor = "pointer";
-            else this.canvas.style.cursor = "default";
-        });
-        this.canvas.addEventListener('mouseleave', ()=>{
-            for (const hoverable of this.hoverables){
-                hoverable.offHover();
-            }
-            this.canvas.style.cursor = "default";
-            this.dragging = false;
-        });
+        this.context = canvas1.getContext('2d');
         this.canvas.addEventListener('wheel', (e)=>{
             this.scaleAtMouse(e.deltaY < 0 ? 1.1 : 0.9);
             console.log(this.scale);
@@ -304,12 +230,88 @@ class Board {
             e.preventDefault();
             this.dragging = false;
         });
+        this.canvas.addEventListener('mouseleave', (e)=>{
+            this.dragging = false;
+        });
+        this.canvas.addEventListener('mousemove', (e)=>{
+            const prev = this.mouse;
+            this.mouse = {
+                x: e.offsetX,
+                y: e.offsetY
+            };
+            if (this.dragging) this.drag(prev);
+        });
+        this.canvas.addEventListener('touchstart', (e)=>{
+            e.preventDefault();
+            if (e.touches.length === 1) {
+                const t1 = e.touches.item(0);
+                if (t1) {
+                    this.mouse = this.getTouchOffset({
+                        x: t1.clientX,
+                        y: t1.clientY
+                    });
+                }
+                this.touchTimer = setTimeout(()=>{
+                    this.dragging = true;
+                }, 100);
+            } else {
+                clearTimeout(this.touchTimer);
+            }
+        });
+        this.canvas.addEventListener('touchend', (e)=>{
+            if (e.touches.length !== 2) {
+                this.previousTouchLength = undefined;
+            }
+            setTimeout(()=>{
+                this.dragging = e.touches.length === 1;
+            }, 0);
+            clearTimeout(this.touchTimer);
+        });
+        this.canvas.addEventListener('touchmove', (e)=>{
+            e.preventDefault();
+            if (e.touches.length === 2) {
+                const t1 = e.touches.item(0);
+                const t2 = e.touches.item(1);
+                if (t1 && t2) {
+                    const vect = OriginVector.from(this.getTouchOffset({
+                        x: t1.clientX,
+                        y: t1.clientY
+                    }), {
+                        x: t2.clientX,
+                        y: t2.clientY
+                    });
+                    if (this.previousTouchLength) {
+                        const diff = this.previousTouchLength - vect.length;
+                        this.scaleAt(vect.halfwayPoint, diff < 0 ? 1.01 : 0.99);
+                    }
+                    this.previousTouchLength = vect.length;
+                }
+            }
+            if (e.touches.length === 1 && this.dragging) {
+                const t1 = e.touches.item(0);
+                if (t1) {
+                    const prev = this.mouse;
+                    this.mouse = this.getTouchOffset({
+                        x: t1.clientX,
+                        y: t1.clientY
+                    });
+                    this.drag(prev);
+                }
+            }
+        });
+        this.canvas.addEventListener('touchstart', (e)=>{
+            if (!this.hasDoubleTapped && e.touches.length === 1) {
+                this.hasDoubleTapped = true;
+                setTimeout(()=>this.hasDoubleTapped = false
+                , 300);
+                return false;
+            }
+            this.context.setTransform(1, 0, 0, 1, 0, 0);
+            this.scale = 1;
+            this.origin.x = 0;
+            this.origin.y = 0;
+        });
     }
-    scale = 1;
-    origin = {
-        x: 0,
-        y: 0
-    };
     worldToScreen(x, y) {
         x = x * this.scale + this.origin.x;
         y = y * this.scale + this.origin.y;
@@ -327,12 +329,17 @@ class Board {
         };
     }
     scaleAtMouse(scaleBy) {
+        this.scaleAt({
+            x: this.mouse.x,
+            y: this.mouse.y
+        }, scaleBy);
+    }
+    scaleAt(p, scaleBy) {
         this.scale = Math.min(Math.max(this.scale * scaleBy, 1), 4);
-        this.origin.x = this.mouse.x - (this.mouse.x - this.origin.x) * scaleBy;
-        this.origin.y = this.mouse.y - (this.mouse.y - this.origin.y) * scaleBy;
+        this.origin.x = p.x - (p.x - this.origin.x) * scaleBy;
+        this.origin.y = p.y - (p.y - this.origin.y) * scaleBy;
         this.constrainOrigin();
     }
-    dragging = false;
     drag(prev) {
         if (this.scale > 1) {
             const xOffset = this.mouse.x - prev.x;
@@ -345,6 +352,90 @@ class Board {
     constrainOrigin() {
         this.origin.x = Math.min(Math.max(this.origin.x, -this.canvas.width * this.scale + this.canvas.width), 0);
         this.origin.y = Math.min(Math.max(this.origin.y, -this.canvas.height * this.scale + this.canvas.height), 0);
+    }
+    draw() {
+        this.context.setTransform(this.scale, 0, 0, this.scale, this.origin.x, this.origin.y);
+    }
+    getTouchOffset(p) {
+        const { x , y  } = this.canvas.getBoundingClientRect();
+        const offsetX = p.x - x;
+        const offsetY = p.y - y;
+        return {
+            x: offsetX,
+            y: offsetY
+        };
+    }
+}
+class Board extends ZoomableCanvas {
+    structures;
+    entities;
+    layers;
+    grid;
+    gridSize = {
+        x: 40,
+        y: 60
+    };
+    _gridScale = 20;
+    get gridScale() {
+        return this._gridScale;
+    }
+    showGrid = false;
+    game;
+    get hoverables() {
+        return this.entities.filter((e)=>{
+            if (e.checkHovering) {
+                if (e instanceof Cell) {
+                    return e.visible;
+                }
+                return true;
+            }
+        });
+    }
+    get clickables() {
+        return this.entities.filter((e)=>e.checkIfClicked
+        );
+    }
+    constructor(canvas2, game1){
+        super(canvas2);
+        this.game = game1;
+        this.canvas = canvas2;
+        this.setGridScale();
+        const ctx = this.canvas.getContext('2d');
+        this.context = ctx;
+        this.structures = [];
+        this.entities = [];
+        this.grid = new Map();
+        this.buildGridCells();
+        this.layers = new Map();
+        this.layers.set('units', new Map());
+        this.layers.set('overlay', new Map());
+        this.canvas.addEventListener('click', (e)=>{
+            e.preventDefault();
+            for (const clickable of this.clickables){
+                clickable.checkIfClicked(this.screenToWorld(e.offsetX, e.offsetY), this.gridScale);
+            }
+        });
+        this.canvas.addEventListener('mousemove', (e)=>{
+            let isHovering = false;
+            for (const hoverable of this.hoverables){
+                if (hoverable.checkHovering(this.screenToWorld(e.offsetX, e.offsetY), this.gridScale)) {
+                    isHovering = true;
+                }
+            }
+            if (isHovering) this.canvas.style.cursor = "pointer";
+            else this.canvas.style.cursor = "default";
+        });
+        this.canvas.addEventListener('mouseleave', ()=>{
+            for (const hoverable of this.hoverables){
+                hoverable.offHover();
+            }
+            this.canvas.style.cursor = "default";
+        });
+        this.canvas.addEventListener('touchend', ()=>{
+            if (!this.dragging) for (const clickable of this.clickables){
+                clickable.checkIfClicked(this.screenToWorld(this.mouse.x, this.mouse.y), this.gridScale);
+            }
+        });
     }
     buildGridCells() {
         for(let x = 0; x < this.gridSize.x; x++){
@@ -414,7 +505,7 @@ class Board {
         }
     }
     draw() {
-        this.context.setTransform(this.scale, 0, 0, this.scale, this.origin.x, this.origin.y);
+        super.draw();
         this.context.shadowColor = '#00000000';
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.drawBG();
@@ -609,6 +700,42 @@ class Control {
         this.element.remove();
     }
 }
+const SoundClips = {
+    bang: 'bang.mp3',
+    blaggard: 'blaggard.mp3',
+    boom: 'boom.mp3',
+    fight_me: 'fight_me.mp3',
+    fite_me: 'fite_me.mp3',
+    for_the_emperor: 'for_the_emperor.mp3',
+    have_at_ye: 'have_at_ye.mp3',
+    kablooie: 'kablooie.mp3',
+    ratatatata: 'ratatatata.mp3'
+};
+const audioHandler = (type)=>{
+    const audio = new Audio();
+    if (type === 'fight') {
+        const fightSounds = [
+            'blaggard',
+            'fight_me',
+            'fite_me',
+            'for_the_emperor',
+            'have_at_ye'
+        ];
+        type = fightSounds[Math.floor(Math.random() * fightSounds.length)];
+        if (type === 'have_at_ye') console.log("Honestly, I know this probably sounds like Spiff, but I PROMISE it's me");
+    }
+    if (type === 'shoot') {
+        const fightSounds = [
+            'bang',
+            'boom',
+            'kablooie',
+            'ratatatata'
+        ];
+        type = fightSounds[Math.floor(Math.random() * fightSounds.length)];
+    }
+    audio.src = `${window.location.host.includes('github') ? '/war-roulette/public' : ''}/sounds/${SoundClips[type]}`;
+    return audio;
+};
 class TargetOutline extends Rectangle {
     draw(ctx, gridScale) {
         this.strokeStyle = 'orange';
@@ -1013,7 +1140,3 @@ gridToggle.addEventListener('change', function(e) {
     gridToggle.checked = board.showGrid;
 });
 window.board = board;
-document.addEventListener('touchstart', (e)=>{
-    e.preventDefault();
-    audioHandler('kablooie').play();
-});

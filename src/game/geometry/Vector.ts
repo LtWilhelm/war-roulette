@@ -31,14 +31,12 @@ export class Vector {
     this.y = this._length * Math.cos(this._angle);
   }
 
-  constructor(vector: Point, origin?: Point) {
+  constructor(vector: Point) {
     this.x = vector.x;
     this.y = vector.y;
 
     this._length = this.length;
-    this._angle = this.angle
-    // if (origin) this.origin = origin;
-    // else this.origin = {x: 0, y: 0};
+    this._angle = this.angle;
   }
 
   add(v: Vector) {
@@ -55,6 +53,31 @@ export class Vector {
   }
 }
 
+export class OriginVector extends Vector {
+  origin: Point;
+
+  get halfwayPoint() {
+    return {
+      x: (this.length/2 * Math.sin(this.angle)) + this.origin.x,
+      y: (this.length/2 * Math.cos(this.angle)) + this.origin.y
+    }
+  }
+
+  constructor(origin: Point, p: Point) {
+    super(p);
+    this.origin = origin;
+  }
+
+  static from(origin: Point, p: Point) {
+    const v = {
+      x: p.x - origin.x,
+      y: p.y - origin.y
+    };
+
+    return new OriginVector(origin, v);
+  }
+}
+
 export interface Point {
   x: number;
   y: number;
@@ -64,15 +87,6 @@ interface Pointlike extends Partial<Point> {
   xPos?: number;
   yPos?: number;
 }
-
-// export class Point {
-//   x: number;
-//   y: number;
-//   constructor(p: Point) {
-//     this.x = p.x;
-//     this.y = p.y;
-//   }
-// }
 
 export class VectorLine extends Vector implements IShape {
   xPos: number;
