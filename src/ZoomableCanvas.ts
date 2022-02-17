@@ -82,6 +82,7 @@ export class ZoomableCanvas {
       if (e.touches.length !== 2) {
         this.previousTouchLength = undefined;
       }
+      // Delay setting the dragging flag to false so that anything else that happens on touchend can have access to it
       setTimeout(() => {
         this.dragging = e.touches.length === 1;
       }, 0)
@@ -128,7 +129,9 @@ export class ZoomableCanvas {
     });
 
     this.canvas.addEventListener('touchstart', (e) => {
-      if (!this.hasDoubleTapped && e.touches.length === 1) {
+      if (e.touches.length !== 1) return false;
+      
+      if (!this.hasDoubleTapped) {
         this.hasDoubleTapped = true;
         setTimeout(() => this.hasDoubleTapped = false, 300);
         return false;

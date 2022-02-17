@@ -300,7 +300,8 @@ class ZoomableCanvas {
             }
         });
         this.canvas.addEventListener('touchstart', (e)=>{
-            if (!this.hasDoubleTapped && e.touches.length === 1) {
+            if (e.touches.length !== 1) return false;
+            if (!this.hasDoubleTapped) {
                 this.hasDoubleTapped = true;
                 setTimeout(()=>this.hasDoubleTapped = false
                 , 300);
