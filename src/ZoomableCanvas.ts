@@ -1,4 +1,9 @@
 import { OriginVector, Point } from "./game/geometry/Vector.ts";
+import { easeInOut } from "./timing/EaseInOut.ts";
+import { map } from "./timing/Map.ts";
+
+type TouchEventCallback = (e: TouchEvent) => void;
+const maxZoomScale = 4;
 
 export class ZoomableCanvas {
   canvas: HTMLCanvasElement;
@@ -21,14 +26,13 @@ export class ZoomableCanvas {
   private touchTimer?: number;
 
   private hasDoubleTapped = false;
-
+  private zooming = false;
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.context = canvas.getContext('2d')!;
 
     this.canvas.addEventListener('wheel', (e) => {
       this.scaleAtMouse(e.deltaY < 0 ? 1.1 : .9);
-      console.log(this.scale);
       if (this.scale === 1) {
         this.origin.x = 0
         this.origin.y = 0
@@ -82,10 +86,18 @@ export class ZoomableCanvas {
       if (e.touches.length !== 2) {
         this.previousTouchLength = undefined;
       }
-      // Delay setting the dragging flag to false so that anything else that happens on touchend can have access to it
-      setTimeout(() => {
-        this.dragging = e.touches.length === 1;
-      }, 0)
+
+      switch (e.touches.length) {
+        case 1:
+          break;
+        case 0:
+          if (!this.zooming) {
+            this.events.get('touchend')?.map(cb => cb(e));
+          }
+          break;
+      }
+
+      this.dragging = e.touches.length === 1;
       clearTimeout(this.touchTimer);
     });
     this.canvas.addEventListener('touchmove', (e) => {
@@ -130,41 +142,48 @@ export class ZoomableCanvas {
 
     this.canvas.addEventListener('touchstart', (e) => {
       if (e.touches.length !== 1) return false;
-      
+
       if (!this.hasDoubleTapped) {
         this.hasDoubleTapped = true;
         setTimeout(() => this.hasDoubleTapped = false, 300);
         return false;
       }
 
-      this.context.setTransform(1,0,0,1,0,0);
-      this.scale = 1;
-      this.origin.x = 0;
-      this.origin.y = 0;
+      // this.context.setTransform(1, 0, 0, 1, 0, 0);
+      // this.scale = 1;
+      // this.origin.x = 0;
+      // this.origin.y = 0;
+
+      console.log(this.mouse);
+
+      this.frameCounter = 0;
+      this.zoomDirection *= -1;
+      this.events.get('doubletap')?.map(cb => cb(e));
     })
   }
 
   worldToScreen(x: number, y: number) {
     x = x * this.scale + this.origin.x;
     y = y * this.scale + this.origin.y;
-    return { x, y }
+    return { x, y };
   }
   screenToWorld(x: number, y: number) {
     x = (x - this.origin.x) / this.scale;
     y = (y - this.origin.y) / this.scale;
-    return { x, y }
+    return { x, y };
   }
   scaleAtMouse(scaleBy: number) {
+    if (this.scale === 4 && scaleBy > 1) return;
     this.scaleAt({
       x: this.mouse.x,
       y: this.mouse.y
-    }, scaleBy)
+    }, scaleBy);
   }
   scaleAt(p: Point, scaleBy: number) {
-    this.scale = Math.min(Math.max(this.scale * scaleBy, 1), 4);
+    this.scale = Math.min(Math.max(this.scale * scaleBy, 1), maxZoomScale);
     this.origin.x = p.x - (p.x - this.origin.x) * scaleBy;
     this.origin.y = p.y - (p.y - this.origin.y) * scaleBy;
-    this.constrainOrigin()
+    this.constrainOrigin();
   }
   drag(prev: Point) {
     if (this.scale > 1) {
@@ -182,6 +201,7 @@ export class ZoomableCanvas {
 
   draw() {
     this.context.setTransform(this.scale, 0, 0, this.scale, this.origin.x, this.origin.y)
+    this.animateZoom();
   }
 
   getTouchOffset(p: Point) {
@@ -194,4 +214,51 @@ export class ZoomableCanvas {
       y: offsetY
     }
   }
+
+  zoomDirection = -1;
+  frameCounter = 60;
+  animateZoom() {
+    if (this.frameCounter < 60) {
+      const frame = easeInOut(map(this.frameCounter, 0, 59, 0, 1));
+      // this.scaleAtMouse(1.000001);
+      // console.log(this.origin);
+      switch (this.zoomDirection) {
+        case 1: {
+          this.scale = map(frame, 0, 1, 1, maxZoomScale);
+          
+          this.origin.x = this.mouse.x - (this.mouse.x * this.scale);
+          this.origin.y = this.mouse.y - (this.mouse.y * this.scale);
+        }
+        break;
+        case -1: {
+          const oldScale = this.scale;
+          const totalWidthPc = this.origin.x/(this.canvas.width * this.scale) || 1;
+          const totalHeightPc = this.origin.y/(this.canvas.height * this.scale) || 1;
+          this.scale = map(frame, 0, 1, maxZoomScale, 1);
+          const xShrinkage = (this.canvas.width * this.scale) - (this.canvas.width * oldScale);
+          const yShrinkage = (this.canvas.height * this.scale) - (this.canvas.height * oldScale);
+          // this.origin.x -= ((this.origin.x/oldScale)) * this.scale;
+          // this.origin.y -= ((this.origin.y/oldScale)) * this.scale;
+          // this.origin.x = ((this.canvas.width * this.scale) * totalWidthPc);
+          // this.origin.y = ((this.canvas.height * this.scale) * totalHeightPc);
+          this.origin.x += xShrinkage * totalWidthPc;
+          this.origin.y += yShrinkage * totalHeightPc;
+        }
+        break;
+      }
+      // this.origin.x = this.mouse.x - (this.mouse.x * this.scale);
+      // this.origin.y = this.mouse.y - (this.mouse.y * this.scale);
+      this.constrainOrigin();
+
+      this.frameCounter++;
+    }
+  }
+
+  events: Map<string, TouchEventCallback[]> = new Map();
+  registerEvent(eventName: 'touchend' | 'touchstart' | 'touchmove' | 'doubletap', cb: TouchEventCallback) {
+    let events = this.events.get(eventName);
+    if (!events) events = this.events.set(eventName, []).get(eventName)!;
+    events.push(cb);
+  }
 }
+

@@ -94,11 +94,11 @@ export class Board extends ZoomableCanvas {
       this.canvas.style.cursor = "default";
     })
 
-    this.canvas.addEventListener('touchend', () => {
+    this.registerEvent('touchend', (e) => {
       if (!this.dragging)
-      for (const clickable of this.clickables) {
-        clickable.checkIfClicked(this.screenToWorld(this.mouse.x, this.mouse.y), this.gridScale);
-      }
+        for (const clickable of this.clickables) {
+          clickable.checkIfClicked(this.screenToWorld(this.mouse.x, this.mouse.y), this.gridScale);
+        }
     })
   }
 

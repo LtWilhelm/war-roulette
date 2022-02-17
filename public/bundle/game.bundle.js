@@ -188,6 +188,11 @@ class VectorLine extends Vector {
         this.steer = !this.steer;
     }
 }
+const easeInOut = (x)=>x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2
+;
+const map = (value, x1, y1, x2, y2)=>(value - x1) * (y2 - x2) / (y1 - x1) + x2
+;
+const maxZoomScale = 4;
 class ZoomableCanvas {
     canvas;
     context;
@@ -204,12 +209,12 @@ class ZoomableCanvas {
     previousTouchLength;
     touchTimer;
     hasDoubleTapped = false;
+    zooming = false;
     constructor(canvas1){
         this.canvas = canvas1;
         this.context = canvas1.getContext('2d');
         this.canvas.addEventListener('wheel', (e)=>{
             this.scaleAtMouse(e.deltaY < 0 ? 1.1 : 0.9);
-            console.log(this.scale);
             if (this.scale === 1) {
                 this.origin.x = 0;
                 this.origin.y = 0;
@@ -262,9 +267,17 @@ class ZoomableCanvas {
             if (e.touches.length !== 2) {
                 this.previousTouchLength = undefined;
             }
-            setTimeout(()=>{
-                this.dragging = e.touches.length === 1;
-            }, 0);
+            switch(e.touches.length){
+                case 1:
+                    break;
+                case 0:
+                    if (!this.zooming) {
+                        this.events.get('touchend')?.map((cb)=>cb(e)
+                        );
+                    }
+                    break;
+            }
+            this.dragging = e.touches.length === 1;
             clearTimeout(this.touchTimer);
         });
         this.canvas.addEventListener('touchmove', (e)=>{
@@ -307,10 +320,11 @@ class ZoomableCanvas {
                 , 300);
                 return false;
             }
-            this.context.setTransform(1, 0, 0, 1, 0, 0);
-            this.scale = 1;
-            this.origin.x = 0;
-            this.origin.y = 0;
+            console.log(this.mouse);
+            this.frameCounter = 0;
+            this.zoomDirection *= -1;
+            this.events.get('doubletap')?.map((cb)=>cb(e)
+            );
         });
     }
     worldToScreen(x, y) {
@@ -330,13 +344,14 @@ class ZoomableCanvas {
         };
     }
     scaleAtMouse(scaleBy) {
+        if (this.scale === 4 && scaleBy > 1) return;
         this.scaleAt({
             x: this.mouse.x,
             y: this.mouse.y
         }, scaleBy);
     }
     scaleAt(p, scaleBy) {
-        this.scale = Math.min(Math.max(this.scale * scaleBy, 1), 4);
+        this.scale = Math.min(Math.max(this.scale * scaleBy, 1), maxZoomScale);
         this.origin.x = p.x - (p.x - this.origin.x) * scaleBy;
         this.origin.y = p.y - (p.y - this.origin.y) * scaleBy;
         this.constrainOrigin();
@@ -356,6 +371,7 @@ class ZoomableCanvas {
     }
     draw() {
         this.context.setTransform(this.scale, 0, 0, this.scale, this.origin.x, this.origin.y);
+        this.animateZoom();
     }
     getTouchOffset(p) {
         const { x , y  } = this.canvas.getBoundingClientRect();
@@ -365,6 +381,42 @@ class ZoomableCanvas {
             x: offsetX,
             y: offsetY
         };
+    }
+    zoomDirection = -1;
+    frameCounter = 60;
+    animateZoom() {
+        if (this.frameCounter < 60) {
+            const frame = easeInOut(map(this.frameCounter, 0, 59, 0, 1));
+            switch(this.zoomDirection){
+                case 1:
+                    {
+                        this.scale = map(frame, 0, 1, 1, maxZoomScale);
+                        this.origin.x = this.mouse.x - this.mouse.x * this.scale;
+                        this.origin.y = this.mouse.y - this.mouse.y * this.scale;
+                    }
+                    break;
+                case -1:
+                    {
+                        const oldScale = this.scale;
+                        const totalWidthPc = this.origin.x / (this.canvas.width * this.scale) || 1;
+                        const totalHeightPc = this.origin.y / (this.canvas.height * this.scale) || 1;
+                        this.scale = map(frame, 0, 1, maxZoomScale, 1);
+                        const xShrinkage = this.canvas.width * this.scale - this.canvas.width * oldScale;
+                        const yShrinkage = this.canvas.height * this.scale - this.canvas.height * oldScale;
+                        this.origin.x += xShrinkage * totalWidthPc;
+                        this.origin.y += yShrinkage * totalHeightPc;
+                    }
+                    break;
+            }
+            this.constrainOrigin();
+            this.frameCounter++;
+        }
+    }
+    events = new Map();
+    registerEvent(eventName, cb) {
+        let events = this.events.get(eventName);
+        if (!events) events = this.events.set(eventName, []).get(eventName);
+        events.push(cb);
     }
 }
 class Board extends ZoomableCanvas {
@@ -432,7 +484,7 @@ class Board extends ZoomableCanvas {
             }
             this.canvas.style.cursor = "default";
         });
-        this.canvas.addEventListener('touchend', ()=>{
+        this.registerEvent('touchend', (e)=>{
             if (!this.dragging) for (const clickable of this.clickables){
                 clickable.checkIfClicked(this.screenToWorld(this.mouse.x, this.mouse.y), this.gridScale);
             }
