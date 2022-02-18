@@ -297,6 +297,9 @@ class ZoomableCanvas {
                     if (this.previousTouchLength) {
                         const diff = this.previousTouchLength - vect.length;
                         this.scaleAt(vect.halfwayPoint, diff < 0 ? 1.01 : 0.99);
+                        this.scaleAround = {
+                            ...vect.halfwayPoint
+                        };
                     }
                     this.previousTouchLength = vect.length;
                 }
@@ -682,9 +685,11 @@ class Game {
         this.turnNumber = 0;
         this.controls = new Map();
         this.controlContainer = document.getElementById("controls");
-        this.timer = setInterval(()=>{
-            if (this.board) this.board.draw();
-        }, 100 / 6);
+        setTimeout(()=>{
+            this.timer = setInterval(()=>{
+                if (this.board) this.board.draw();
+            }, 100 / 6);
+        }, 1000);
     }
     stopGame() {
         clearInterval(this.timer);
@@ -1148,6 +1153,13 @@ class Structure extends HoverableClickable {
         ctx.shadowColor = '#00000000';
     }
 }
+function uuidv4() {
+    return ([
+        10000000
+    ] + -1000 + -4000 + -8000 + -100000000000).replace(/[018]/g, (c)=>(c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+}
+crypto.randomUUID = crypto.randomUUID || uuidv4;
 const canvas = document.querySelector("#game-board");
 const board = new Board(canvas);
 const twoStory = new Structure({

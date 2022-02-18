@@ -8,7 +8,7 @@ export class Game {
 
   board: Board;
 
-  timer: number;
+  timer?: number;
 
   activeUnit?: Unit;
   selectedUnit?: Unit;
@@ -31,10 +31,12 @@ export class Game {
     this.controls = new Map();
     this.controlContainer = document.getElementById("controls") as HTMLDivElement;
 
-    this.timer = setInterval(() => {
-      if (this.board)
-        this.board.draw();
-    }, (100 / 6));
+    setTimeout(() => {
+      this.timer = setInterval(() => {
+        if (this.board)
+          this.board.draw();
+      }, (100 / 6));
+    }, 1000)
   }
 
   stopGame() {
@@ -102,7 +104,7 @@ class Control {
   element: HTMLElement;
   constructor() {
     this.uuid = crypto.randomUUID();
-    
+
     this.element = document.createElement('button');
   }
 
@@ -112,7 +114,7 @@ class Control {
     this.element.addEventListener('click', this.action);
   }
 
-  changeText(text:string) {
+  changeText(text: string) {
     this.text = text;
     this.element.textContent = this.text;
   }

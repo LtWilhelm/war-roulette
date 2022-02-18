@@ -123,6 +123,7 @@ export class ZoomableCanvas {
           if (this.previousTouchLength) {
             const diff = this.previousTouchLength - vect.length;
             this.scaleAt(vect.halfwayPoint, diff < 0 ? 1.01 : .99);
+            this.scaleAround = {...vect.halfwayPoint}
           }
           this.previousTouchLength = vect.length;
         }
@@ -235,24 +236,10 @@ export class ZoomableCanvas {
       switch (this.zoomDirection) {
         case 1: {
           this.scale = map(frame, 0, 1, 1, maxZoomScale);
-
-          // this.origin.x = this.mouse.x - (this.mouse.x * this.scale);
-          // this.origin.y = this.mouse.y - (this.mouse.y * this.scale);
         }
           break;
         case -1: {
-          // const oldScale = this.scale;
-          // const totalWidthPc = this.origin.x/(this.canvas.width * this.scale) || 1;
-          // const totalHeightPc = this.origin.y/(this.canvas.height * this.scale) || 1;
           this.scale = map(frame, 0, 1, maxZoomScale, 1);
-          // this.mouse = {
-          //   x: (this.mouse.x + (this.canvas.width/2))/2,
-          //   y: (this.mouse.y + (this.canvas.height/2))/2
-          // }
-          // const xShrinkage = (this.canvas.width * this.scale) - (this.canvas.width * oldScale);
-          // const yShrinkage = (this.canvas.height * this.scale) - (this.canvas.height * oldScale);
-          // this.origin.x += xShrinkage * totalWidthPc;
-          // this.origin.y += yShrinkage * totalHeightPc;
         }
           break;
       }
