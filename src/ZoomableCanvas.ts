@@ -75,9 +75,9 @@ export class ZoomableCanvas {
             y: t1.clientY
           })
         }
-        this.touchTimer = setTimeout(() => {
-          this.dragging = true;
-        }, 100)
+        // this.touchTimer = setTimeout(() => {
+        //   this.dragging = true;
+        // }, 100)
       } else {
         clearTimeout(this.touchTimer);
       }
@@ -127,7 +127,8 @@ export class ZoomableCanvas {
         }
       }
 
-      if (e.touches.length === 1 && this.dragging) {
+      if (e.touches.length === 1) {
+        this.dragging === true;
         const t1 = e.touches.item(0);
         if (t1) {
           const prev = this.mouse;
@@ -237,10 +238,6 @@ export class ZoomableCanvas {
           this.scale = map(frame, 0, 1, maxZoomScale, 1);
           const xShrinkage = (this.canvas.width * this.scale) - (this.canvas.width * oldScale);
           const yShrinkage = (this.canvas.height * this.scale) - (this.canvas.height * oldScale);
-          // this.origin.x -= ((this.origin.x/oldScale)) * this.scale;
-          // this.origin.y -= ((this.origin.y/oldScale)) * this.scale;
-          // this.origin.x = ((this.canvas.width * this.scale) * totalWidthPc);
-          // this.origin.y = ((this.canvas.height * this.scale) * totalHeightPc);
           this.origin.x += xShrinkage * totalWidthPc;
           this.origin.y += yShrinkage * totalHeightPc;
         }

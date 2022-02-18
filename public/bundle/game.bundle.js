@@ -256,9 +256,6 @@ class ZoomableCanvas {
                         y: t1.clientY
                     });
                 }
-                this.touchTimer = setTimeout(()=>{
-                    this.dragging = true;
-                }, 100);
             } else {
                 clearTimeout(this.touchTimer);
             }
@@ -300,7 +297,8 @@ class ZoomableCanvas {
                     this.previousTouchLength = vect.length;
                 }
             }
-            if (e.touches.length === 1 && this.dragging) {
+            if (e.touches.length === 1) {
+                this.dragging === true;
                 const t1 = e.touches.item(0);
                 if (t1) {
                     const prev = this.mouse;
