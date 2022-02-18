@@ -210,6 +210,10 @@ class ZoomableCanvas {
     touchTimer;
     hasDoubleTapped = false;
     zooming = false;
+    scaleAround = {
+        x: 0,
+        y: 0
+    };
     constructor(canvas1){
         this.canvas = canvas1;
         this.context = canvas1.getContext('2d');
@@ -319,8 +323,16 @@ class ZoomableCanvas {
                 return false;
             }
             console.log(this.mouse);
-            this.frameCounter = 0;
-            this.zoomDirection *= -1;
+            if (this.scale > 1) {
+                this.frameCounter = map(this.scale, maxZoomScale, 1, 0, 59);
+                this.zoomDirection = -1;
+            } else {
+                this.frameCounter = 0;
+                this.zoomDirection = 1;
+            }
+            if (this.zoomDirection > 0) this.scaleAround = {
+                ...this.mouse
+            };
             this.events.get('doubletap')?.map((cb)=>cb(e)
             );
         });
@@ -389,23 +401,16 @@ class ZoomableCanvas {
                 case 1:
                     {
                         this.scale = map(frame, 0, 1, 1, maxZoomScale);
-                        this.origin.x = this.mouse.x - this.mouse.x * this.scale;
-                        this.origin.y = this.mouse.y - this.mouse.y * this.scale;
                     }
                     break;
                 case -1:
                     {
-                        const oldScale = this.scale;
-                        const totalWidthPc = this.origin.x / (this.canvas.width * this.scale) || 1;
-                        const totalHeightPc = this.origin.y / (this.canvas.height * this.scale) || 1;
                         this.scale = map(frame, 0, 1, maxZoomScale, 1);
-                        const xShrinkage = this.canvas.width * this.scale - this.canvas.width * oldScale;
-                        const yShrinkage = this.canvas.height * this.scale - this.canvas.height * oldScale;
-                        this.origin.x += xShrinkage * totalWidthPc;
-                        this.origin.y += yShrinkage * totalHeightPc;
                     }
                     break;
             }
+            this.origin.x = this.scaleAround.x - this.scaleAround.x * this.scale;
+            this.origin.y = this.scaleAround.y - this.scaleAround.y * this.scale;
             this.constrainOrigin();
             this.frameCounter++;
         }

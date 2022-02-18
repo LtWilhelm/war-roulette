@@ -27,6 +27,7 @@ export class ZoomableCanvas {
 
   private hasDoubleTapped = false;
   private zooming = false;
+  scaleAround: Point = { x: 0, y: 0 };
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.context = canvas.getContext('2d')!;
@@ -157,8 +158,16 @@ export class ZoomableCanvas {
 
       console.log(this.mouse);
 
-      this.frameCounter = 0;
-      this.zoomDirection *= -1;
+      if (this.scale > 1) {
+        this.frameCounter = map(this.scale, maxZoomScale, 1, 0, 59);
+        this.zoomDirection = -1;
+      } else {
+        this.frameCounter = 0;
+        this.zoomDirection = 1;
+      }
+      if (this.zoomDirection > 0)
+        this.scaleAround = { ...this.mouse };
+        
       this.events.get('doubletap')?.map(cb => cb(e));
     })
   }
@@ -226,25 +235,29 @@ export class ZoomableCanvas {
       switch (this.zoomDirection) {
         case 1: {
           this.scale = map(frame, 0, 1, 1, maxZoomScale);
-          
-          this.origin.x = this.mouse.x - (this.mouse.x * this.scale);
-          this.origin.y = this.mouse.y - (this.mouse.y * this.scale);
+
+          // this.origin.x = this.mouse.x - (this.mouse.x * this.scale);
+          // this.origin.y = this.mouse.y - (this.mouse.y * this.scale);
         }
-        break;
+          break;
         case -1: {
-          const oldScale = this.scale;
-          const totalWidthPc = this.origin.x/(this.canvas.width * this.scale) || 1;
-          const totalHeightPc = this.origin.y/(this.canvas.height * this.scale) || 1;
+          // const oldScale = this.scale;
+          // const totalWidthPc = this.origin.x/(this.canvas.width * this.scale) || 1;
+          // const totalHeightPc = this.origin.y/(this.canvas.height * this.scale) || 1;
           this.scale = map(frame, 0, 1, maxZoomScale, 1);
-          const xShrinkage = (this.canvas.width * this.scale) - (this.canvas.width * oldScale);
-          const yShrinkage = (this.canvas.height * this.scale) - (this.canvas.height * oldScale);
-          this.origin.x += xShrinkage * totalWidthPc;
-          this.origin.y += yShrinkage * totalHeightPc;
+          // this.mouse = {
+          //   x: (this.mouse.x + (this.canvas.width/2))/2,
+          //   y: (this.mouse.y + (this.canvas.height/2))/2
+          // }
+          // const xShrinkage = (this.canvas.width * this.scale) - (this.canvas.width * oldScale);
+          // const yShrinkage = (this.canvas.height * this.scale) - (this.canvas.height * oldScale);
+          // this.origin.x += xShrinkage * totalWidthPc;
+          // this.origin.y += yShrinkage * totalHeightPc;
         }
-        break;
+          break;
       }
-      // this.origin.x = this.mouse.x - (this.mouse.x * this.scale);
-      // this.origin.y = this.mouse.y - (this.mouse.y * this.scale);
+      this.origin.x = this.scaleAround.x - (this.scaleAround.x * this.scale);
+      this.origin.y = this.scaleAround.y - (this.scaleAround.y * this.scale);
       this.constrainOrigin();
 
       this.frameCounter++;
